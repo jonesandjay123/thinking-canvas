@@ -20,7 +20,7 @@ function loadInitialDocument(): CanvasDocument {
 export interface CanvasStore {
   document: CanvasDocument
   nodes: ThoughtNode[]
-  createChild: (parentId: string) => void
+  createChild: (parentId: string, partial?: Partial<ThoughtNode>) => void
   updateNode: (nodeId: string, patch: Partial<ThoughtNode>) => void
   deleteNode: (nodeId: string) => void
   moveNode: (nodeId: string, position: ThoughtNode['position']) => void
@@ -40,7 +40,8 @@ export function useCanvasStore(): CanvasStore {
   return {
     document,
     nodes,
-    createChild: (parentId: string) => persist(createNode(document, parentId)),
+    createChild: (parentId: string, partial?: Partial<ThoughtNode>) =>
+      persist(createNode(document, parentId, partial)),
     updateNode: (nodeId: string, patch: Partial<ThoughtNode>) =>
       persist(updateNode(document, nodeId, patch)),
     deleteNode: (nodeId: string) => persist(deleteNode(document, nodeId)),
