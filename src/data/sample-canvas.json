@@ -1,7 +1,7 @@
 {
   "canvas": {
     "id": "main",
-    "title": "Thinking Canvas",
+    "title": "思考畫布",
     "rootNodeId": "root",
     "createdAt": "2026-04-18T18:00:00.000Z",
     "updatedAt": "2026-04-18T18:00:00.000Z"
@@ -11,7 +11,7 @@
       "id": "root",
       "canvasId": "main",
       "title": "Thinking Canvas",
-      "content": "A personal visual thinking workspace for Jones.",
+      "content": "一個屬於 Jones 的個人視覺化思考工作台。",
       "childIds": ["ideas", "projects", "principles"],
       "parentId": null,
       "links": [],
@@ -24,8 +24,8 @@
     "ideas": {
       "id": "ideas",
       "canvasId": "main",
-      "title": "Ideas",
-      "content": "Raw sparks, experiments, questions.",
+      "title": "想法",
+      "content": "零散靈感、實驗題目、待整理問題。",
       "childIds": [],
       "parentId": "root",
       "links": [],
@@ -38,8 +38,8 @@
     "projects": {
       "id": "projects",
       "canvasId": "main",
-      "title": "Projects",
-      "content": "Things being built or explored.",
+      "title": "專案",
+      "content": "正在建構、規劃或探索中的事情。",
       "childIds": [],
       "parentId": "root",
       "links": [],
@@ -52,8 +52,8 @@
     "principles": {
       "id": "principles",
       "canvasId": "main",
-      "title": "Principles",
-      "content": "Durable ways of thinking.",
+      "title": "原則",
+      "content": "值得長期保留的思考方式。",
       "childIds": [],
       "parentId": "root",
       "links": [],
