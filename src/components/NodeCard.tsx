@@ -32,10 +32,14 @@ export function NodeCard({
   onDragStart,
 }: NodeCardProps) {
   return (
-    <div className={`node-card ${isRoot ? 'root' : ''}`} onPointerDown={(event) => onDragStart(node.id, event)}>
+    <div className={`node-card ${isRoot ? 'root' : ''}`}>
       <div className="node-card__meta">
         <span className="node-badge">{typeLabelMap[node.type]}</span>
         <span className="node-tagline">#{node.id}</span>
+      </div>
+
+      <div className="node-card__drag-handle" onPointerDown={(event) => onDragStart(node.id, event)}>
+        ⋮⋮ 拖曳移動
       </div>
 
       <input
