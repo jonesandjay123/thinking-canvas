@@ -1,0 +1,42 @@
+{
+  "canvasId": "main",
+  "title": "Thinking Canvas",
+  "nodes": [
+    {
+      "id": "root",
+      "title": "Thinking Canvas",
+      "content": "A personal visual thinking workspace for Jones.",
+      "children": ["ideas", "projects", "principles"],
+      "links": [],
+      "tags": ["root"],
+      "position": { "x": 480, "y": 240 }
+    },
+    {
+      "id": "ideas",
+      "title": "Ideas",
+      "content": "Raw sparks, experiments, questions.",
+      "children": [],
+      "links": [],
+      "tags": ["bucket"],
+      "position": { "x": 240, "y": 420 }
+    },
+    {
+      "id": "projects",
+      "title": "Projects",
+      "content": "Things being built or explored.",
+      "children": [],
+      "links": [],
+      "tags": ["bucket"],
+      "position": { "x": 480, "y": 420 }
+    },
+    {
+      "id": "principles",
+      "title": "Principles",
+      "content": "Durable ways of thinking.",
+      "children": [],
+      "links": [],
+      "tags": ["bucket"],
+      "position": { "x": 720, "y": 420 }
+    }
+  ]
+}
