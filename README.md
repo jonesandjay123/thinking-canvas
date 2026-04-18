@@ -162,6 +162,61 @@ AI 負責協助發散、整理、重組、補充、維護結構。
 - `createdAt`
 - `updatedAt`
 
+
+## 本地開發與 Gemini prototype 使用方式
+
+### 1. 安裝依賴
+
+```bash
+npm install
+```
+
+### 2. 啟動本地開發
+
+```bash
+npm run dev
+```
+
+### 3. 如果要啟用 Gemini prototype
+
+先把 `.env.example` 複製成 `.env.local`：
+
+```bash
+cp .env.example .env.local
+```
+
+然後把 `.env.local` 裡的內容改成你自己的 key，例如：
+
+```bash
+VITE_GEMINI_API_KEY=你的_gemini_api_key
+VITE_GEMINI_MODEL=gemini-2.5-flash
+```
+
+之後重新啟動開發伺服器：
+
+```bash
+npm run dev
+```
+
+### 4. 目前 Gemini 能做什麼
+
+目前 v0 prototype 的 Gemini 功能是：
+
+- 對單一節點按下 `✨ Gemini 展開`
+- 根據整張畫布的上下文
+- 為該節點產生 3 到 5 個子節點建議
+- 並直接新增進畫布
+
+### 5. 重要提醒
+
+目前這是 *prototype 用法*。
+`VITE_GEMINI_API_KEY` 屬於前端環境變數，適合本地測試，不適合長期作為公開部署的正式安全方案。
+
+如果之後要部署到公開環境，應改成：
+- 前端保留畫布 UI
+- Gemini key 改放在 serverless proxy / Firebase Functions
+- 不把正式金鑰暴露在前端
+
 ## 專案結構
 
 ```text
