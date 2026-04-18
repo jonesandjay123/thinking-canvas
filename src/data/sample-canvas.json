@@ -1,42 +1,67 @@
 {
-  "canvasId": "main",
-  "title": "Thinking Canvas",
-  "nodes": [
-    {
+  "canvas": {
+    "id": "main",
+    "title": "Thinking Canvas",
+    "rootNodeId": "root",
+    "createdAt": "2026-04-18T18:00:00.000Z",
+    "updatedAt": "2026-04-18T18:00:00.000Z"
+  },
+  "nodes": {
+    "root": {
       "id": "root",
+      "canvasId": "main",
       "title": "Thinking Canvas",
       "content": "A personal visual thinking workspace for Jones.",
-      "children": ["ideas", "projects", "principles"],
+      "childIds": ["ideas", "projects", "principles"],
+      "parentId": null,
       "links": [],
       "tags": ["root"],
-      "position": { "x": 480, "y": 240 }
+      "type": "root",
+      "position": { "x": 0, "y": 0 },
+      "createdAt": "2026-04-18T18:00:00.000Z",
+      "updatedAt": "2026-04-18T18:00:00.000Z"
     },
-    {
+    "ideas": {
       "id": "ideas",
+      "canvasId": "main",
       "title": "Ideas",
       "content": "Raw sparks, experiments, questions.",
-      "children": [],
+      "childIds": [],
+      "parentId": "root",
       "links": [],
       "tags": ["bucket"],
-      "position": { "x": 240, "y": 420 }
+      "type": "idea",
+      "position": { "x": -320, "y": 220 },
+      "createdAt": "2026-04-18T18:00:00.000Z",
+      "updatedAt": "2026-04-18T18:00:00.000Z"
     },
-    {
+    "projects": {
       "id": "projects",
+      "canvasId": "main",
       "title": "Projects",
       "content": "Things being built or explored.",
-      "children": [],
+      "childIds": [],
+      "parentId": "root",
       "links": [],
       "tags": ["bucket"],
-      "position": { "x": 480, "y": 420 }
+      "type": "project",
+      "position": { "x": 0, "y": 220 },
+      "createdAt": "2026-04-18T18:00:00.000Z",
+      "updatedAt": "2026-04-18T18:00:00.000Z"
     },
-    {
+    "principles": {
       "id": "principles",
+      "canvasId": "main",
       "title": "Principles",
       "content": "Durable ways of thinking.",
-      "children": [],
+      "childIds": [],
+      "parentId": "root",
       "links": [],
       "tags": ["bucket"],
-      "position": { "x": 720, "y": 420 }
+      "type": "principle",
+      "position": { "x": 320, "y": 220 },
+      "createdAt": "2026-04-18T18:00:00.000Z",
+      "updatedAt": "2026-04-18T18:00:00.000Z"
     }
-  ]
+  }
 }
