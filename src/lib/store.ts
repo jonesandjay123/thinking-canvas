@@ -15,6 +15,16 @@ import { createNode, deleteNode, moveNode, updateNode } from './actions'
 const STORAGE_KEY = 'thinking-canvas-document'
 const UI_STORAGE_KEY = 'thinking-canvas-ui'
 
+type UiSettings = {
+  aiExpandCount: number
+  controlDock: ControlDock
+  theme: ThemeMode
+  flowDirection: FlowDirection
+  nodeTextScale: NodeTextScale
+  nodeShape: NodeShape
+  nodeSize: NodeSize
+}
+
 function loadInitialDocument(): CanvasDocument {
   const saved = localStorage.getItem(STORAGE_KEY)
   if (saved) {
@@ -27,27 +37,11 @@ function loadInitialDocument(): CanvasDocument {
   return sampleCanvas as CanvasDocument
 }
 
-function loadUiSettings(): {
-  aiExpandCount: number
-  controlDock: ControlDock
-  theme: ThemeMode
-  flowDirection: FlowDirection
-  nodeTextScale: NodeTextScale
-  nodeShape: NodeShape
-  nodeSize: NodeSize
-} {
+function loadUiSettings(): UiSettings {
   const saved = localStorage.getItem(UI_STORAGE_KEY)
   if (saved) {
     try {
-      const parsed = JSON.parse(saved) as Partial<{
-        aiExpandCount: number
-        controlDock: ControlDock
-        theme: ThemeMode
-        flowDirection: FlowDirection
-        nodeTextScale: NodeTextScale
-        nodeShape: NodeShape
-        nodeSize: NodeSize
-      }>
+      const parsed = JSON.parse(saved) as Partial<UiSettings>
       return {
         aiExpandCount: Math.min(5, Math.max(1, parsed.aiExpandCount ?? 3)),
         controlDock: parsed.controlDock ?? 'top',
@@ -72,16 +66,9 @@ function loadUiSettings(): {
   }
 }
 
-export interface CanvasStore {
+export interface CanvasStore extends UiSettings {
   document: CanvasDocument
   nodes: ThoughtNode[]
-  aiExpandCount: number
-  controlDock: ControlDock
-  theme: ThemeMode
-  flowDirection: FlowDirection
-  nodeTextScale: NodeTextScale
-  nodeShape: NodeShape
-  nodeSize: NodeSize
   createChild: (parentId: string, partial?: Partial<ThoughtNode>) => void
   updateNode: (nodeId: string, patch: Partial<ThoughtNode>) => void
   deleteNode: (nodeId: string) => void
@@ -94,12 +81,13 @@ export interface CanvasStore {
   setNodeShape: (shape: NodeShape) => void
   setNodeSize: (size: NodeSize) => void
   setDocument: (document: CanvasDocument) => void
+  importState: (input: { document: CanvasDocument; presentation: Pick<UiSettings, 'flowDirection' | 'nodeShape' | 'nodeSize' | 'nodeTextScale'> }) => void
   reset: () => void
 }
 
 export function useCanvasStore(): CanvasStore {
   const [document, setDocumentState] = useState<CanvasDocument>(() => loadInitialDocument())
-  const [ui, setUi] = useState(() => loadUiSettings())
+  const [ui, setUi] = useState<UiSettings>(() => loadUiSettings())
 
   useEffect(() => {
     localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(ui))
@@ -115,13 +103,7 @@ export function useCanvasStore(): CanvasStore {
   return {
     document,
     nodes,
-    aiExpandCount: ui.aiExpandCount,
-    controlDock: ui.controlDock,
-    theme: ui.theme,
-    flowDirection: ui.flowDirection,
-    nodeTextScale: ui.nodeTextScale,
-    nodeShape: ui.nodeShape,
-    nodeSize: ui.nodeSize,
+    ...ui,
     createChild: (parentId: string, partial?: Partial<ThoughtNode>) =>
       persist(createNode(document, parentId, partial)),
     updateNode: (nodeId: string, patch: Partial<ThoughtNode>) =>
@@ -138,6 +120,16 @@ export function useCanvasStore(): CanvasStore {
     setNodeShape: (nodeShape: NodeShape) => setUi((current) => ({ ...current, nodeShape })),
     setNodeSize: (nodeSize: NodeSize) => setUi((current) => ({ ...current, nodeSize })),
     setDocument: (nextDocument: CanvasDocument) => persist(nextDocument),
+    importState: ({ document: nextDocument, presentation }) => {
+      persist(nextDocument)
+      setUi((current) => ({
+        ...current,
+        flowDirection: presentation.flowDirection,
+        nodeShape: presentation.nodeShape,
+        nodeSize: presentation.nodeSize,
+        nodeTextScale: presentation.nodeTextScale,
+      }))
+    },
     reset: () => {
       localStorage.removeItem(STORAGE_KEY)
       persist(sampleCanvas as CanvasDocument)

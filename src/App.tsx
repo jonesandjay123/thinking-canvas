@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
 import { geminiReady } from './lib/gemini'
+import { createSaveFileV1, parseSaveFileV1 } from './lib/save-file'
 import type { FlowDirection, NodeShape, NodeSize, NodeTextScale } from './types/canvas'
 
 const directionOptions: FlowDirection[] = ['TB', 'BT', 'LR', 'RL']
@@ -29,14 +30,64 @@ function getDockForDirection(direction: FlowDirection) {
   }
 }
 
+function downloadTextFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = window.document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 function App() {
   const store = useCanvasStore()
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'neutral' | 'success' | 'error'>('neutral')
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', store.theme)
   }, [store.theme])
+
+  const handleExport = () => {
+    const saveFile = createSaveFileV1({
+      document: store.document,
+      flowDirection: store.flowDirection,
+      nodeShape: store.nodeShape,
+      nodeSize: store.nodeSize,
+      nodeTextScale: store.nodeTextScale,
+    })
+    const safeTitle = (store.document.canvas.title || 'thinking-canvas').replace(/[^a-z0-9-_]+/gi, '-').toLowerCase()
+    downloadTextFile(`${safeTitle || 'thinking-canvas'}-save-v1.json`, JSON.stringify(saveFile, null, 2))
+    setStatusMessage('已匯出 save file v1 JSON。')
+    setStatusTone('success')
+  }
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      const raw = await file.text()
+      const parsed = parseSaveFileV1(raw)
+      store.importState({
+        document: parsed.document,
+        presentation: parsed.presentation,
+      })
+      setStatusMessage(`已匯入 ${file.name}`)
+      setStatusTone('success')
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : '匯入失敗。')
+      setStatusTone('error')
+    } finally {
+      event.target.value = ''
+    }
+  }
 
   return (
     <div className={`app-shell theme-${store.theme}`}>
@@ -129,6 +180,16 @@ function App() {
                 {direction}
               </button>
             ))}
+          </div>
+
+          <div className="stack-actions field-label--spaced">
+            <button className="secondary" onClick={handleExport}>
+              匯出 JSON
+            </button>
+            <button className="secondary" onClick={handleImportClick}>
+              匯入 JSON
+            </button>
+            <input ref={fileInputRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={handleImportFile} />
           </div>
 
           <button className="secondary" onClick={() => store.setTheme(store.theme === 'dark' ? 'light' : 'dark')}>

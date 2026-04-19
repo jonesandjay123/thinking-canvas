@@ -195,6 +195,11 @@ button {
   gap: 8px;
 }
 
+.stack-actions {
+  display: grid;
+  gap: 8px;
+}
+
 .direction-button.active {
   outline: 2px solid rgba(124, 151, 255, 0.65);
 }
