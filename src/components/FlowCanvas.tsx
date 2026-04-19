@@ -207,42 +207,10 @@ function FlowCanvasInner({
     [onDocumentChange],
   )
 
-  const buildNodes = useCallback(
-    (sourceDocument: CanvasDocument): Node[] =>
-      Object.values(sourceDocument.nodes).map((node) => ({
-        id: node.id,
-        type: 'thought',
-        position: node.position,
-        sourcePosition: axis.source,
-        targetPosition: axis.target,
-        data: {
-          thoughtNode: node,
-          controlDock,
-          theme,
-          geminiEnabled,
-          isGenerating: generatingNodeId === node.id,
-          onAddChild: handleAddChild,
-          onGenerate: handleGenerate,
-          onDelete: handleDelete,
-          onToggleExpand: handleToggleExpand,
-          onUpdate: handleUpdate,
-        },
-      })),
-    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, theme],
-  )
-
   const buildEdges = useCallback(
     (sourceDocument: CanvasDocument) => buildFlowEdges(sourceDocument, flowDirection),
     [flowDirection],
   )
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))
-  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(document))
-
-  useEffect(() => {
-    setNodes(buildNodes(document))
-    setEdges(buildEdges(document))
-  }, [document, buildNodes, buildEdges, setNodes, setEdges])
 
   useEffect(() => {
     const relaid = layoutDocument(document, flowDirection)
@@ -438,6 +406,38 @@ function FlowCanvasInner({
     },
     [document, persistDocument],
   )
+
+  const buildNodes = useCallback(
+    (sourceDocument: CanvasDocument): Node[] =>
+      Object.values(sourceDocument.nodes).map((node) => ({
+        id: node.id,
+        type: 'thought',
+        position: node.position,
+        sourcePosition: axis.source,
+        targetPosition: axis.target,
+        data: {
+          thoughtNode: node,
+          controlDock,
+          theme,
+          geminiEnabled,
+          isGenerating: generatingNodeId === node.id,
+          onAddChild: handleAddChild,
+          onGenerate: handleGenerate,
+          onDelete: handleDelete,
+          onToggleExpand: handleToggleExpand,
+          onUpdate: handleUpdate,
+        },
+      })),
+    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleUpdate, theme],
+  )
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))
+  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(document))
+
+  useEffect(() => {
+    setNodes(buildNodes(document))
+    setEdges(buildEdges(document))
+  }, [document, buildNodes, buildEdges, setNodes, setEdges])
 
   const onConnect = useCallback(
     (connection: Connection) => {
