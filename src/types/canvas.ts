@@ -1,6 +1,7 @@
 export type ThoughtNodeType = 'root' | 'idea' | 'project' | 'principle' | 'note'
 export type ThemeMode = 'dark' | 'light'
 export type ControlDock = 'top' | 'right' | 'bottom' | 'left'
+export type FlowDirection = 'TB' | 'BT' | 'LR' | 'RL'
 
 export interface Canvas {
   id: string

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -8,16 +8,16 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
   type Connection,
   type Edge,
   type Node,
-  type NodeChange,
-  type NodePositionChange,
   type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { generateChildSuggestions } from '../lib/gemini'
-import type { CanvasDocument, ControlDock, ThemeMode, ThoughtNode } from '../types/canvas'
+import type { CanvasDocument, ControlDock, FlowDirection, ThemeMode, ThoughtNode } from '../types/canvas'
 
 type FlowNodeData = {
   thoughtNode: ThoughtNode
@@ -36,10 +36,76 @@ interface FlowCanvasProps {
   document: CanvasDocument
   aiExpandCount: number
   controlDock: ControlDock
+  flowDirection: FlowDirection
   theme: ThemeMode
   geminiEnabled: boolean
   onDocumentChange: (document: CanvasDocument) => void
   onStatus: (message: string, tone: 'neutral' | 'success' | 'error') => void
+}
+
+function getFlowAxis(direction: FlowDirection) {
+  switch (direction) {
+    case 'LR':
+      return { source: Position.Right, target: Position.Left, x: 260, y: 0 }
+    case 'RL':
+      return { source: Position.Left, target: Position.Right, x: -260, y: 0 }
+    case 'BT':
+      return { source: Position.Top, target: Position.Bottom, x: 0, y: -220 }
+    case 'TB':
+    default:
+      return { source: Position.Bottom, target: Position.Top, x: 0, y: 220 }
+  }
+}
+
+function layoutDocument(document: CanvasDocument, direction: FlowDirection): CanvasDocument {
+  const axis = getFlowAxis(direction)
+  const nextNodes = { ...document.nodes }
+  const levelMap = new Map<string, number>()
+
+  const walk = (nodeId: string, depth: number) => {
+    levelMap.set(nodeId, depth)
+    nextNodes[nodeId]?.childIds.forEach((childId) => walk(childId, depth + 1))
+  }
+
+  walk(document.canvas.rootNodeId, 0)
+
+  const grouped = new Map<number, string[]>()
+  Array.from(levelMap.entries()).forEach(([nodeId, depth]) => {
+    const existing = grouped.get(depth) ?? []
+    existing.push(nodeId)
+    grouped.set(depth, existing)
+  })
+
+  grouped.forEach((nodeIds, depth) => {
+    nodeIds.forEach((nodeId, index) => {
+      const offset = index - (nodeIds.length - 1) / 2
+      const node = nextNodes[nodeId]
+      if (!node) return
+
+      if (direction === 'TB' || direction === 'BT') {
+        nextNodes[nodeId] = {
+          ...node,
+          position: {
+            x: offset * 260,
+            y: depth * axis.y,
+          },
+        }
+      } else {
+        nextNodes[nodeId] = {
+          ...node,
+          position: {
+            x: depth * axis.x,
+            y: offset * 220,
+          },
+        }
+      }
+    })
+  })
+
+  return {
+    ...document,
+    nodes: nextNodes,
+  }
 }
 
 function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
@@ -101,7 +167,8 @@ const nodeTypes = {
   thought: FlowThoughtNode,
 }
 
-function buildFlowEdges(document: CanvasDocument): Edge[] {
+function buildFlowEdges(document: CanvasDocument, direction: FlowDirection): Edge[] {
+  const axis = getFlowAxis(direction)
   return Object.values(document.nodes)
     .filter((node) => node.parentId)
     .map((node) => ({
@@ -111,6 +178,8 @@ function buildFlowEdges(document: CanvasDocument): Edge[] {
       type: 'smoothstep',
       sourceHandle: null,
       targetHandle: null,
+      sourcePosition: axis.source,
+      targetPosition: axis.target,
     }))
 }
 
@@ -118,6 +187,7 @@ function FlowCanvasInner({
   document,
   aiExpandCount,
   controlDock,
+  flowDirection,
   theme,
   geminiEnabled,
   onDocumentChange,
@@ -125,16 +195,61 @@ function FlowCanvasInner({
 }: FlowCanvasProps) {
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
 
-  const persistNodes = useCallback(
-    (nextNodes: Record<string, ThoughtNode>) => {
+  const axis = useMemo(() => getFlowAxis(flowDirection), [flowDirection])
+
+  const persistDocument = useCallback(
+    (nextDocument: CanvasDocument) => {
       onDocumentChange({
-        ...document,
-        canvas: { ...document.canvas, updatedAt: new Date().toISOString() },
-        nodes: nextNodes,
+        ...nextDocument,
+        canvas: { ...nextDocument.canvas, updatedAt: new Date().toISOString() },
       })
     },
-    [document, onDocumentChange],
+    [onDocumentChange],
   )
+
+  const buildNodes = useCallback(
+    (sourceDocument: CanvasDocument): Node[] =>
+      Object.values(sourceDocument.nodes).map((node) => ({
+        id: node.id,
+        type: 'thought',
+        position: node.position,
+        sourcePosition: axis.source,
+        targetPosition: axis.target,
+        data: {
+          thoughtNode: node,
+          controlDock,
+          theme,
+          geminiEnabled,
+          isGenerating: generatingNodeId === node.id,
+          onAddChild: handleAddChild,
+          onGenerate: handleGenerate,
+          onDelete: handleDelete,
+          onToggleExpand: handleToggleExpand,
+          onUpdate: handleUpdate,
+        },
+      })),
+    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, theme],
+  )
+
+  const buildEdges = useCallback(
+    (sourceDocument: CanvasDocument) => buildFlowEdges(sourceDocument, flowDirection),
+    [flowDirection],
+  )
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))
+  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(document))
+
+  useEffect(() => {
+    setNodes(buildNodes(document))
+    setEdges(buildEdges(document))
+  }, [document, buildNodes, buildEdges, setNodes, setEdges])
+
+  useEffect(() => {
+    const relaid = layoutDocument(document, flowDirection)
+    if (JSON.stringify(relaid.nodes) !== JSON.stringify(document.nodes)) {
+      persistDocument(relaid)
+    }
+  }, [document, flowDirection, persistDocument])
 
   const handleAddChild = useCallback(
     (parentId: string) => {
@@ -155,24 +270,27 @@ function FlowCanvasInner({
         tags: [],
         type: 'idea',
         position: {
-          x: parent.position.x + (childIndex - Math.floor(parent.childIds.length / 2)) * 240,
-          y: parent.position.y + 220,
+          x: parent.position.x + axis.x * Math.max(1, childIndex + 1),
+          y: parent.position.y + axis.y * Math.max(1, childIndex + 1),
         },
         createdAt: timestamp,
         updatedAt: timestamp,
       }
 
-      persistNodes({
-        ...document.nodes,
-        [parentId]: {
-          ...parent,
-          childIds: [...parent.childIds, id],
-          updatedAt: timestamp,
+      persistDocument({
+        ...document,
+        nodes: {
+          ...document.nodes,
+          [parentId]: {
+            ...parent,
+            childIds: [...parent.childIds, id],
+            updatedAt: timestamp,
+          },
+          [id]: newNode,
         },
-        [id]: newNode,
       })
     },
-    [document, persistNodes],
+    [axis.x, axis.y, document, persistDocument],
   )
 
   const handleDelete = useCallback(
@@ -195,41 +313,47 @@ function FlowCanvasInner({
         updatedAt: new Date().toISOString(),
       }
 
-      persistNodes(nextNodes)
+      persistDocument({ ...document, nodes: nextNodes })
     },
-    [document, persistNodes],
+    [document, persistDocument],
   )
 
   const handleToggleExpand = useCallback(
     (nodeId: string) => {
       const node = document.nodes[nodeId]
       if (!node) return
-      persistNodes({
-        ...document.nodes,
-        [nodeId]: {
-          ...node,
-          isExpanded: !node.isExpanded,
-          updatedAt: new Date().toISOString(),
+      persistDocument({
+        ...document,
+        nodes: {
+          ...document.nodes,
+          [nodeId]: {
+            ...node,
+            isExpanded: !node.isExpanded,
+            updatedAt: new Date().toISOString(),
+          },
         },
       })
     },
-    [document, persistNodes],
+    [document, persistDocument],
   )
 
   const handleUpdate = useCallback(
     (nodeId: string, patch: Partial<ThoughtNode>) => {
       const node = document.nodes[nodeId]
       if (!node) return
-      persistNodes({
-        ...document.nodes,
-        [nodeId]: {
-          ...node,
-          ...patch,
-          updatedAt: new Date().toISOString(),
+      persistDocument({
+        ...document,
+        nodes: {
+          ...document.nodes,
+          [nodeId]: {
+            ...node,
+            ...patch,
+            updatedAt: new Date().toISOString(),
+          },
         },
       })
     },
-    [document, persistNodes],
+    [document, persistDocument],
   )
 
   const handleGenerate = useCallback(
@@ -247,10 +371,9 @@ function FlowCanvasInner({
         }
 
         let nextDocument = document
-        suggestions.forEach((title) => {
+        suggestions.forEach((title, index) => {
           const parent = nextDocument.nodes[nodeId]
           const id = Math.random().toString(36).slice(2, 10)
-          const childIndex = parent.childIds.length
           const timestamp = new Date().toISOString()
           const newNode: ThoughtNode = {
             id,
@@ -263,8 +386,8 @@ function FlowCanvasInner({
             tags: [],
             type: 'idea',
             position: {
-              x: parent.position.x + (childIndex - Math.floor((parent.childIds.length + suggestions.length) / 2)) * 240,
-              y: parent.position.y + 220,
+              x: parent.position.x + axis.x + (flowDirection === 'TB' || flowDirection === 'BT' ? (index - (suggestions.length - 1) / 2) * 220 : 0),
+              y: parent.position.y + axis.y + (flowDirection === 'LR' || flowDirection === 'RL' ? (index - (suggestions.length - 1) / 2) * 180 : 0),
             },
             createdAt: timestamp,
             updatedAt: timestamp,
@@ -285,7 +408,7 @@ function FlowCanvasInner({
           }
         })
 
-        onDocumentChange(nextDocument)
+        persistDocument(nextDocument)
         onStatus(`Gemini 已為「${node.title}」新增 ${suggestions.length} 個子節點。`, 'success')
       } catch (error) {
         onStatus(error instanceof Error ? error.message : 'Gemini 展開失敗。', 'error')
@@ -293,60 +416,27 @@ function FlowCanvasInner({
         setGeneratingNodeId(null)
       }
     },
-    [aiExpandCount, document, onDocumentChange, onStatus],
+    [aiExpandCount, axis.x, axis.y, document, flowDirection, onStatus, persistDocument],
   )
 
-  const nodes = useMemo<Node[]>(
-    () =>
-      Object.values(document.nodes).map((node) => ({
-        id: node.id,
-        type: 'thought',
-        position: node.position,
-        data: {
-          thoughtNode: node,
-          controlDock,
-          theme,
-          geminiEnabled,
-          isGenerating: generatingNodeId === node.id,
-          onAddChild: handleAddChild,
-          onGenerate: handleGenerate,
-          onDelete: handleDelete,
-          onToggleExpand: handleToggleExpand,
-          onUpdate: handleUpdate,
-        },
-      })),
-    [controlDock, document.nodes, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleUpdate, theme],
-  )
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent | React.TouchEvent, draggedNode: Node) => {
+      const currentNode = document.nodes[draggedNode.id]
+      if (!currentNode) return
 
-  const edges = useMemo(() => buildFlowEdges(document), [document])
-
-  const onNodesChange = useCallback(
-    (changes: NodeChange<Node>[]) => {
-      const nextNodes = { ...document.nodes }
-      let changed = false
-
-      changes.forEach((change) => {
-        if (change.type !== 'position' || !('position' in change) || !change.position || change.dragging) return
-        const positionChange = change as NodePositionChange
-        const node = nextNodes[positionChange.id]
-        if (!node) return
-        const nextPosition = positionChange.position
-        if (!nextPosition) return
-
-        nextNodes[positionChange.id] = {
-          ...node,
-          position: {
-            x: nextPosition.x,
-            y: nextPosition.y,
+      persistDocument({
+        ...document,
+        nodes: {
+          ...document.nodes,
+          [draggedNode.id]: {
+            ...currentNode,
+            position: draggedNode.position,
+            updatedAt: new Date().toISOString(),
           },
-          updatedAt: new Date().toISOString(),
-        }
-        changed = true
+        },
       })
-
-      if (changed) persistNodes(nextNodes)
     },
-    [document.nodes, persistNodes],
+    [document, persistDocument],
   )
 
   const onConnect = useCallback(
@@ -380,10 +470,10 @@ function FlowCanvasInner({
         updatedAt: timestamp,
       }
 
-      persistNodes(nextNodes)
+      persistDocument({ ...document, nodes: nextNodes })
       onStatus('已更新節點連線關係。', 'success')
     },
-    [document.nodes, onStatus, persistNodes],
+    [document, onStatus, persistDocument],
   )
 
   return (
@@ -393,6 +483,8 @@ function FlowCanvasInner({
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeDragStop={onNodeDragStop}
         onConnect={onConnect}
         fitView
         fitViewOptions={{ padding: 0.2 }}
@@ -405,7 +497,7 @@ function FlowCanvasInner({
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} />
         <Controls showInteractive={false} />
         <Panel position="top-right" className="flow-hint-panel">
-          雙擊節點可展開細節，拖曳、縮放、edges 交給 React Flow。
+          雙擊節點可展開細節，流向可從左側切換。
         </Panel>
       </ReactFlow>
     </div>

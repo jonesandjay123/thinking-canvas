@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
 import { geminiReady } from './lib/gemini'
-import type { ControlDock } from './types/canvas'
+import type { ControlDock, FlowDirection } from './types/canvas'
 
 const dockOptions: ControlDock[] = ['top', 'right', 'bottom', 'left']
+const directionOptions: FlowDirection[] = ['TB', 'BT', 'LR', 'RL']
 
 function App() {
   const store = useCanvasStore()
@@ -21,7 +22,7 @@ function App() {
         <div>
           <p className="eyebrow">Thinking Canvas</p>
           <h1>{store.document.canvas.title}</h1>
-          <p className="sidebar-copy">核心畫布已改成 React Flow，後面 zoom、edges、minimap、controls 都比較好擴充。</p>
+          <p className="sidebar-copy">核心畫布已改成 React Flow，現在把控制面板收斂成真正有用的設定。</p>
         </div>
 
         <div className="sidebar-panel">
@@ -58,28 +59,24 @@ function App() {
             ))}
           </select>
 
+          <label className="field-label field-label--spaced" htmlFor="flow-direction">
+            方位流向
+          </label>
+          <div className="direction-grid" id="flow-direction">
+            {directionOptions.map((direction) => (
+              <button
+                key={direction}
+                className={`secondary direction-button ${store.flowDirection === direction ? 'active' : ''}`}
+                onClick={() => store.setFlowDirection(direction)}
+              >
+                {direction}
+              </button>
+            ))}
+          </div>
+
           <button className="secondary" onClick={() => store.setTheme(store.theme === 'dark' ? 'light' : 'dark')}>
             {store.theme === 'dark' ? '切換到 Light' : '切換到 Dark'}
           </button>
-        </div>
-
-        <div className="sidebar-panel">
-          <h2>快速操作</h2>
-          <button onClick={() => setStatusMessage('請直接用節點上的 + 來新增，這樣會更符合 flow 式操作。')}>
-            提示我怎麼新增節點
-          </button>
-          <button className="secondary" onClick={() => store.reset()}>
-            重設範例畫布
-          </button>
-        </div>
-
-        <div className="sidebar-panel">
-          <h2>Gemini</h2>
-          <p className="sidebar-copy compact">
-            {geminiReady()
-              ? 'Gemini 會根據目前節點、path 與整張畫布脈絡，一次展開多個子節點。'
-              : '尚未偵測到 Gemini API key，目前仍可先操作結構與節點內容。'}
-          </p>
         </div>
 
         {statusMessage && <div className={`sidebar-panel status-panel ${statusTone}`}>{statusMessage}</div>}
@@ -90,6 +87,7 @@ function App() {
           document={store.document}
           aiExpandCount={store.aiExpandCount}
           controlDock={store.controlDock}
+          flowDirection={store.flowDirection}
           theme={store.theme}
           geminiEnabled={geminiReady()}
           onDocumentChange={store.setDocument}
