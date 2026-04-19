@@ -6,7 +6,7 @@ Thinking Canvas 是一個以 repo 為基礎、可由 agent 協作操作的想法
 
 ## 目前專案狀態
 
-這個 repo 現在已經有一個可操作的本地版本基底，包含：
+這個 repo 現在已經有一個可操作、可本地存檔的版本基底，包含：
 
 - React + Vite + TypeScript app
 - React Flow 畫布
@@ -14,6 +14,9 @@ Thinking Canvas 是一個以 repo 為基礎、可由 agent 協作操作的想法
 - 本地 `localStorage` persistence
 - 控制面板（方位流向、節點形狀、大小、文字大小）
 - Gemini prototype 節點展開
+- save-file v1 spec 文件
+- 最小 JSON 匯出 / 匯入
+- import validation 與 local recovery
 
 所以目前最重要的目標，不再只是「把畫布 render 出來」，而是：
 
@@ -86,13 +89,14 @@ Thinking Canvas 不只是筆記 app，也不只是心智圖。
 
 ## 當前本地里程碑
 
-如果要說「目前這段做到一個可以先停的本地段落」，至少應該包含：
+如果要說「目前這段做到一個可以先停的本地段落」，目前已經包含：
 
 - 本地畫布可正常操作
 - 本地 persistence 穩定
 - 文件清楚描述 storage architecture
 - save-file v1 的方向被定義清楚
-- 下一步 export/import 與 Firestore 不需要重新猜
+- 最小 export / import 已可使用
+- import validation 與 local recovery 已補上第一輪
 
 ## 設計原則
 
@@ -226,7 +230,7 @@ thinking-canvas/
 ## 立即下一步
 
 目前最合理的下一步是：
-1. 依 `docs/save-file-spec-v1.md` 做最小 export/import
-2. 補 import validation
-3. 補 localStorage migration / recovery thinking
-4. 再決定 Firestore 映射方式
+1. 補更完整的 migration 設計
+2. 決定 `userPreference` 是否進入正式存檔層
+3. 規劃 Firestore document / presentation 邊界
+4. 再進入 Firebase / Firestore 實作

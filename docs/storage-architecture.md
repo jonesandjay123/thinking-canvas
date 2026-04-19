@@ -91,6 +91,12 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 
 ## 目前 localStorage 現況
 
+目前除了保存之外，也已經補上最小 recovery：
+- 載入時先 normalize
+- document 結構不合法時清除該 key 並 fallback 到 sample canvas
+- `reset()` 會同時清除 document 與 UI settings
+
+
 當前實作是：
 
 - `thinking-canvas-document`
@@ -182,12 +188,12 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 3. 定 save file spec v1 草案
 
 ### 接著再做
-4. 最小 export JSON
-5. 最小 import JSON + validation
-6. 版本不符提示
+4. 補更完整的 migration 設計
+5. 決定是否納入 user preference 存檔層
+6. 決定 Firestore 映射草案
 
 ### 最後才接
-7. Firebase / Firestore 映射
+7. Firebase / Firestore 實作
 
 ## 與 Firestore 的未來對接
 
