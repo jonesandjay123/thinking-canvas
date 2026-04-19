@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import sampleCanvas from '../data/sample-canvas.json'
-import type { CanvasDocument, ThoughtNode } from '../types/canvas'
+import type { CanvasDocument, ControlDock, ThemeMode, ThoughtNode } from '../types/canvas'
 import { createNode, deleteNode, moveNode, updateNode } from './actions'
 
 const STORAGE_KEY = 'thinking-canvas-document'
+const UI_STORAGE_KEY = 'thinking-canvas-ui'
 
 function loadInitialDocument(): CanvasDocument {
   const saved = localStorage.getItem(STORAGE_KEY)
@@ -17,21 +18,46 @@ function loadInitialDocument(): CanvasDocument {
   return sampleCanvas as CanvasDocument
 }
 
+function loadUiSettings(): { aiExpandCount: number; controlDock: ControlDock; theme: ThemeMode } {
+  const saved = localStorage.getItem(UI_STORAGE_KEY)
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved) as Partial<{ aiExpandCount: number; controlDock: ControlDock; theme: ThemeMode }>
+      return {
+        aiExpandCount: Math.min(5, Math.max(1, parsed.aiExpandCount ?? 3)),
+        controlDock: parsed.controlDock ?? 'top',
+        theme: parsed.theme ?? 'dark',
+      }
+    } catch {
+      localStorage.removeItem(UI_STORAGE_KEY)
+    }
+  }
+  return { aiExpandCount: 3, controlDock: 'top', theme: 'dark' }
+}
+
 export interface CanvasStore {
   document: CanvasDocument
   nodes: ThoughtNode[]
   aiExpandCount: number
+  controlDock: ControlDock
+  theme: ThemeMode
   createChild: (parentId: string, partial?: Partial<ThoughtNode>) => void
   updateNode: (nodeId: string, patch: Partial<ThoughtNode>) => void
   deleteNode: (nodeId: string) => void
   moveNode: (nodeId: string, position: ThoughtNode['position']) => void
   setAiExpandCount: (count: number) => void
+  setControlDock: (dock: ControlDock) => void
+  setTheme: (theme: ThemeMode) => void
   reset: () => void
 }
 
 export function useCanvasStore(): CanvasStore {
   const [document, setDocument] = useState<CanvasDocument>(() => loadInitialDocument())
-  const [aiExpandCount, setAiExpandCount] = useState(3)
+  const [ui, setUi] = useState(() => loadUiSettings())
+
+  useEffect(() => {
+    localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(ui))
+  }, [ui])
 
   const persist = (nextDocument: CanvasDocument) => {
     setDocument(nextDocument)
@@ -43,7 +69,9 @@ export function useCanvasStore(): CanvasStore {
   return {
     document,
     nodes,
-    aiExpandCount,
+    aiExpandCount: ui.aiExpandCount,
+    controlDock: ui.controlDock,
+    theme: ui.theme,
     createChild: (parentId: string, partial?: Partial<ThoughtNode>) =>
       persist(createNode(document, parentId, partial)),
     updateNode: (nodeId: string, patch: Partial<ThoughtNode>) =>
@@ -51,7 +79,10 @@ export function useCanvasStore(): CanvasStore {
     deleteNode: (nodeId: string) => persist(deleteNode(document, nodeId)),
     moveNode: (nodeId: string, position: ThoughtNode['position']) =>
       persist(moveNode(document, nodeId, position)),
-    setAiExpandCount: (count: number) => setAiExpandCount(Math.min(5, Math.max(1, count))),
+    setAiExpandCount: (count: number) =>
+      setUi((current) => ({ ...current, aiExpandCount: Math.min(5, Math.max(1, count)) })),
+    setControlDock: (dock: ControlDock) => setUi((current) => ({ ...current, controlDock: dock })),
+    setTheme: (theme: ThemeMode) => setUi((current) => ({ ...current, theme })),
     reset: () => {
       localStorage.removeItem(STORAGE_KEY)
       persist(sampleCanvas as CanvasDocument)

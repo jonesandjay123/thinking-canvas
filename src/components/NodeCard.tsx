@@ -1,7 +1,8 @@
-import type { ThoughtNode } from '../types/canvas'
+import type { ControlDock, ThoughtNode } from '../types/canvas'
 
 interface NodeCardProps {
   node: ThoughtNode
+  controlDock: ControlDock
   isRoot?: boolean
   isGenerating?: boolean
   geminiEnabled?: boolean
@@ -22,6 +23,7 @@ const typeLabelMap: Record<ThoughtNode['type'], string> = {
 
 export function NodeCard({
   node,
+  controlDock,
   isRoot = false,
   isGenerating = false,
   geminiEnabled = false,
@@ -38,7 +40,10 @@ export function NodeCard({
     >
       <div className="node-card__bubble" onPointerDown={(event) => onDragStart(node.id, event)}>
         <span className="node-card__title-text">{node.title}</span>
-        <div className="node-card__hover-actions" onPointerDown={(event) => event.stopPropagation()}>
+        <div
+          className={`node-card__hover-actions node-card__hover-actions--${controlDock}`}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
           <button className="icon-button" onClick={() => onAddChild(node.id)} title="新增子節點">
             +
           </button>
