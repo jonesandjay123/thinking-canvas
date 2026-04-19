@@ -48,11 +48,12 @@ export interface CanvasStore {
   setAiExpandCount: (count: number) => void
   setControlDock: (dock: ControlDock) => void
   setTheme: (theme: ThemeMode) => void
+  setDocument: (document: CanvasDocument) => void
   reset: () => void
 }
 
 export function useCanvasStore(): CanvasStore {
-  const [document, setDocument] = useState<CanvasDocument>(() => loadInitialDocument())
+  const [document, setDocumentState] = useState<CanvasDocument>(() => loadInitialDocument())
   const [ui, setUi] = useState(() => loadUiSettings())
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export function useCanvasStore(): CanvasStore {
   }, [ui])
 
   const persist = (nextDocument: CanvasDocument) => {
-    setDocument(nextDocument)
+    setDocumentState(nextDocument)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextDocument))
   }
 
@@ -83,6 +84,7 @@ export function useCanvasStore(): CanvasStore {
       setUi((current) => ({ ...current, aiExpandCount: Math.min(5, Math.max(1, count)) })),
     setControlDock: (dock: ControlDock) => setUi((current) => ({ ...current, controlDock: dock })),
     setTheme: (theme: ThemeMode) => setUi((current) => ({ ...current, theme })),
+    setDocument: (nextDocument: CanvasDocument) => persist(nextDocument),
     reset: () => {
       localStorage.removeItem(STORAGE_KEY)
       persist(sampleCanvas as CanvasDocument)

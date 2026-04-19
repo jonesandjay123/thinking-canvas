@@ -1,51 +1,19 @@
-import { useMemo, useState } from 'react'
-import { CanvasView } from './components/CanvasView'
-import { generateChildSuggestions, geminiReady } from './lib/gemini'
+import { useEffect, useState } from 'react'
+import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
+import { geminiReady } from './lib/gemini'
 import type { ControlDock } from './types/canvas'
 
 const dockOptions: ControlDock[] = ['top', 'right', 'bottom', 'left']
 
 function App() {
   const store = useCanvasStore()
-  const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
-  const [statusMessage, setStatusMessage] = useState<string>('')
+  const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'neutral' | 'success' | 'error'>('neutral')
 
-  const themeLabel = useMemo(() => (store.theme === 'dark' ? '切換到 Light' : '切換到 Dark'), [store.theme])
-
-  const handleGenerate = async (nodeId: string) => {
-    const node = store.document.nodes[nodeId]
-    if (!node) return
-
-    setGeneratingNodeId(nodeId)
-    setStatusMessage('')
-
-    try {
-      const suggestions = await generateChildSuggestions(store.document, node, store.aiExpandCount)
-      if (suggestions.length === 0) {
-        setStatusTone('error')
-        setStatusMessage('Gemini 沒有產出可用建議，請再試一次。')
-        return
-      }
-
-      suggestions.forEach((title) => {
-        store.createChild(nodeId, {
-          title,
-          type: 'idea',
-          content: '',
-        })
-      })
-
-      setStatusTone('success')
-      setStatusMessage(`Gemini 已為「${node.title}」新增 ${suggestions.length} 個子節點。`)
-    } catch (error) {
-      setStatusTone('error')
-      setStatusMessage(error instanceof Error ? error.message : 'Gemini 展開失敗。')
-    } finally {
-      setGeneratingNodeId(null)
-    }
-  }
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', store.theme)
+  }, [store.theme])
 
   return (
     <div className={`app-shell theme-${store.theme}`}>
@@ -53,7 +21,7 @@ function App() {
         <div>
           <p className="eyebrow">Thinking Canvas</p>
           <h1>{store.document.canvas.title}</h1>
-          <p className="sidebar-copy">把真正會用到的控制留在左側，把沒意義的說明拿掉。</p>
+          <p className="sidebar-copy">核心畫布已改成 React Flow，後面 zoom、edges、minimap、controls 都比較好擴充。</p>
         </div>
 
         <div className="sidebar-panel">
@@ -91,14 +59,14 @@ function App() {
           </select>
 
           <button className="secondary" onClick={() => store.setTheme(store.theme === 'dark' ? 'light' : 'dark')}>
-            {themeLabel}
+            {store.theme === 'dark' ? '切換到 Light' : '切換到 Dark'}
           </button>
         </div>
 
         <div className="sidebar-panel">
           <h2>快速操作</h2>
-          <button onClick={() => store.createChild(store.document.canvas.rootNodeId)}>
-            對根節點新增子節點
+          <button onClick={() => setStatusMessage('請直接用節點上的 + 來新增，這樣會更符合 flow 式操作。')}>
+            提示我怎麼新增節點
           </button>
           <button className="secondary" onClick={() => store.reset()}>
             重設範例畫布
@@ -110,7 +78,7 @@ function App() {
           <p className="sidebar-copy compact">
             {geminiReady()
               ? 'Gemini 會根據目前節點、path 與整張畫布脈絡，一次展開多個子節點。'
-              : '尚未偵測到 Gemini API key，目前仍可先手動建立與編輯節點。'}
+              : '尚未偵測到 Gemini API key，目前仍可先操作結構與節點內容。'}
           </p>
         </div>
 
@@ -118,18 +86,17 @@ function App() {
       </aside>
 
       <main className="main-panel">
-        <CanvasView
-          nodes={store.nodes}
-          rootNodeId={store.document.canvas.rootNodeId}
-          generatingNodeId={generatingNodeId}
-          geminiEnabled={geminiReady()}
+        <FlowCanvas
+          document={store.document}
+          aiExpandCount={store.aiExpandCount}
           controlDock={store.controlDock}
           theme={store.theme}
-          onAddChild={store.createChild}
-          onDelete={store.deleteNode}
-          onGenerate={handleGenerate}
-          onChange={store.updateNode}
-          onMove={store.moveNode}
+          geminiEnabled={geminiReady()}
+          onDocumentChange={store.setDocument}
+          onStatus={(message, tone) => {
+            setStatusMessage(message)
+            setStatusTone(tone)
+          }}
         />
       </main>
     </div>
