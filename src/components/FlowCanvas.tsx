@@ -17,13 +17,14 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { generateChildSuggestions } from '../lib/gemini'
-import type { CanvasDocument, ControlDock, FlowDirection, ThemeMode, ThoughtNode } from '../types/canvas'
+import type { CanvasDocument, ControlDock, FlowDirection, NodeTextScale, ThemeMode, ThoughtNode } from '../types/canvas'
 
 type FlowNodeData = {
   thoughtNode: ThoughtNode
   controlDock: ControlDock
   sourcePosition: Position
   targetPosition: Position
+  textScale: NodeTextScale
   theme: ThemeMode
   geminiEnabled: boolean
   isGenerating: boolean
@@ -39,6 +40,7 @@ interface FlowCanvasProps {
   aiExpandCount: number
   controlDock: ControlDock
   flowDirection: FlowDirection
+  nodeTextScale: NodeTextScale
   theme: ThemeMode
   geminiEnabled: boolean
   onDocumentChange: (document: CanvasDocument) => void
@@ -111,7 +113,7 @@ function layoutDocument(document: CanvasDocument, direction: FlowDirection): Can
 }
 
 function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
-  const { thoughtNode, controlDock, sourcePosition, targetPosition, theme, geminiEnabled, isGenerating } = data
+  const { thoughtNode, controlDock, sourcePosition, targetPosition, textScale, theme, geminiEnabled, isGenerating } = data
   const [draftTitle, setDraftTitle] = useState(thoughtNode.title)
   const [draftContent, setDraftContent] = useState(thoughtNode.content)
 
@@ -138,7 +140,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
       <Handle type="source" position={sourcePosition} className="flow-node__handle" />
 
       <div className="flow-node__bubble" onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}>
-        <span className="flow-node__title">{thoughtNode.title}</span>
+        <span className={`flow-node__title flow-node__title--${textScale}`}>{thoughtNode.title}</span>
         <div className={`flow-node__actions flow-node__actions--${controlDock}`}>
           <button className="icon-button nodrag nopan" onClick={() => data.onAddChild(thoughtNode.id)} title="新增子節點">
             +
@@ -211,6 +213,7 @@ function FlowCanvasInner({
   aiExpandCount,
   controlDock,
   flowDirection,
+  nodeTextScale,
   theme,
   geminiEnabled,
   onDocumentChange,
@@ -427,6 +430,7 @@ function FlowCanvasInner({
           controlDock,
           sourcePosition: axis.source,
           targetPosition: axis.target,
+          textScale: nodeTextScale,
           theme,
           geminiEnabled,
           isGenerating: generatingNodeId === node.id,
@@ -437,7 +441,7 @@ function FlowCanvasInner({
           onCommit: handleCommit,
         },
       })),
-    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, theme],
+    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, nodeTextScale, theme],
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))

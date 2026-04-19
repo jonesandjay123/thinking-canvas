@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
 import { geminiReady } from './lib/gemini'
-import type { FlowDirection } from './types/canvas'
+import type { FlowDirection, NodeTextScale } from './types/canvas'
 
 const directionOptions: FlowDirection[] = ['TB', 'BT', 'LR', 'RL']
+const textScaleOptions: NodeTextScale[] = ['sm', 'md', 'lg', 'xl']
 
 function getDockForDirection(direction: FlowDirection) {
   switch (direction) {
@@ -57,6 +58,22 @@ function App() {
             ))}
           </select>
 
+          <label className="field-label field-label--spaced" htmlFor="node-text-scale">
+            節點文字大小
+          </label>
+          <select
+            id="node-text-scale"
+            className="select-input"
+            value={store.nodeTextScale}
+            onChange={(event) => store.setNodeTextScale(event.target.value as NodeTextScale)}
+          >
+            {textScaleOptions.map((scale) => (
+              <option key={scale} value={scale}>
+                {scale.toUpperCase()}
+              </option>
+            ))}
+          </select>
+
           <label className="field-label field-label--spaced" htmlFor="flow-direction">
             方位流向
           </label>
@@ -89,6 +106,7 @@ function App() {
           aiExpandCount={store.aiExpandCount}
           controlDock={store.controlDock}
           flowDirection={store.flowDirection}
+          nodeTextScale={store.nodeTextScale}
           theme={store.theme}
           geminiEnabled={geminiReady()}
           onDocumentChange={store.setDocument}

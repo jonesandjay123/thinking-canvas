@@ -322,9 +322,25 @@ button {
 }
 
 .flow-node__title {
-  font-size: 1rem;
   font-weight: 700;
-  max-width: 120px;
+  max-width: 136px;
+  line-height: 1.2;
+}
+
+.flow-node__title--sm {
+  font-size: 0.95rem;
+}
+
+.flow-node__title--md {
+  font-size: 1.08rem;
+}
+
+.flow-node__title--lg {
+  font-size: 1.22rem;
+}
+
+.flow-node__title--xl {
+  font-size: 1.36rem;
 }
 
 .theme-dark .flow-node__title {
