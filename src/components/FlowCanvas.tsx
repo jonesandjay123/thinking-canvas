@@ -29,7 +29,7 @@ type FlowNodeData = {
   onGenerate: (id: string) => void
   onDelete: (id: string) => void
   onToggleExpand: (id: string) => void
-  onUpdate: (id: string, patch: Partial<ThoughtNode>) => void
+  onCommit: (id: string, patch: Partial<ThoughtNode>) => void
 }
 
 interface FlowCanvasProps {
@@ -110,6 +110,25 @@ function layoutDocument(document: CanvasDocument, direction: FlowDirection): Can
 
 function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
   const { thoughtNode, controlDock, theme, geminiEnabled, isGenerating } = data
+  const [draftTitle, setDraftTitle] = useState(thoughtNode.title)
+  const [draftContent, setDraftContent] = useState(thoughtNode.content)
+
+  useEffect(() => {
+    setDraftTitle(thoughtNode.title)
+  }, [thoughtNode.title])
+
+  useEffect(() => {
+    setDraftContent(thoughtNode.content)
+  }, [thoughtNode.content])
+
+  const commitDrafts = () => {
+    const patch: Partial<ThoughtNode> = {}
+    if (draftTitle !== thoughtNode.title) patch.title = draftTitle
+    if (draftContent !== thoughtNode.content) patch.content = draftContent
+    if (Object.keys(patch).length > 0) {
+      data.onCommit(thoughtNode.id, patch)
+    }
+  }
 
   return (
     <div className={`flow-node theme-${theme} ${thoughtNode.isExpanded ? 'expanded' : 'compact'}`}>
@@ -140,22 +159,24 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
 
       {thoughtNode.isExpanded && (
         <div className="flow-node__details nodrag nopan">
+          <button className="collapse-chip" onClick={() => data.onToggleExpand(thoughtNode.id)} title="收合節點">
+            ⌃
+          </button>
           <div className="flow-node__meta">
             <span className="node-badge">{thoughtNode.type}</span>
-            <button className="text-button" onClick={() => data.onToggleExpand(thoughtNode.id)}>
-              收合
-            </button>
           </div>
           <input
             className="flow-node__input"
-            value={thoughtNode.title}
-            onChange={(event) => data.onUpdate(thoughtNode.id, { title: event.target.value })}
+            value={draftTitle}
+            onChange={(event) => setDraftTitle(event.target.value)}
+            onBlur={commitDrafts}
           />
           <textarea
             className="flow-node__textarea"
-            value={thoughtNode.content}
+            value={draftContent}
             placeholder="在這裡寫下這個節點的內容..."
-            onChange={(event) => data.onUpdate(thoughtNode.id, { content: event.target.value })}
+            onChange={(event) => setDraftContent(event.target.value)}
+            onBlur={commitDrafts}
           />
         </div>
       )}
@@ -207,21 +228,6 @@ function FlowCanvasInner({
     },
     [onDocumentChange],
   )
-
-  const buildEdges = useCallback(
-    (sourceDocument: CanvasDocument) => buildFlowEdges(sourceDocument, flowDirection),
-    [flowDirection],
-  )
-
-  useEffect(() => {
-    if (lastFlowDirectionRef.current === flowDirection) return
-    lastFlowDirectionRef.current = flowDirection
-
-    const relaid = layoutDocument(document, flowDirection)
-    if (JSON.stringify(relaid.nodes) !== JSON.stringify(document.nodes)) {
-      persistDocument(relaid)
-    }
-  }, [document, flowDirection, persistDocument])
 
   const handleAddChild = useCallback(
     (parentId: string) => {
@@ -309,7 +315,7 @@ function FlowCanvasInner({
     [document, persistDocument],
   )
 
-  const handleUpdate = useCallback(
+  const handleCommit = useCallback(
     (nodeId: string, patch: Partial<ThoughtNode>) => {
       const node = document.nodes[nodeId]
       if (!node) return
@@ -327,6 +333,21 @@ function FlowCanvasInner({
     },
     [document, persistDocument],
   )
+
+  const buildEdges = useCallback(
+    (sourceDocument: CanvasDocument) => buildFlowEdges(sourceDocument, flowDirection),
+    [flowDirection],
+  )
+
+  useEffect(() => {
+    if (lastFlowDirectionRef.current === flowDirection) return
+    lastFlowDirectionRef.current = flowDirection
+
+    const relaid = layoutDocument(document, flowDirection)
+    if (JSON.stringify(relaid.nodes) !== JSON.stringify(document.nodes)) {
+      persistDocument(relaid)
+    }
+  }, [document, flowDirection, persistDocument])
 
   const handleGenerate = useCallback(
     async (nodeId: string) => {
@@ -391,6 +412,38 @@ function FlowCanvasInner({
     [aiExpandCount, axis.x, axis.y, document, flowDirection, onStatus, persistDocument],
   )
 
+  const buildNodes = useCallback(
+    (sourceDocument: CanvasDocument): Node[] =>
+      Object.values(sourceDocument.nodes).map((node) => ({
+        id: node.id,
+        type: 'thought',
+        position: node.position,
+        sourcePosition: axis.source,
+        targetPosition: axis.target,
+        data: {
+          thoughtNode: node,
+          controlDock,
+          theme,
+          geminiEnabled,
+          isGenerating: generatingNodeId === node.id,
+          onAddChild: handleAddChild,
+          onGenerate: handleGenerate,
+          onDelete: handleDelete,
+          onToggleExpand: handleToggleExpand,
+          onCommit: handleCommit,
+        },
+      })),
+    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, theme],
+  )
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))
+  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(document))
+
+  useEffect(() => {
+    setNodes(buildNodes(document))
+    setEdges(buildEdges(document))
+  }, [document, buildNodes, buildEdges, setNodes, setEdges])
+
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent | React.TouchEvent, draggedNode: Node) => {
       const currentNode = document.nodes[draggedNode.id]
@@ -410,38 +463,6 @@ function FlowCanvasInner({
     },
     [document, persistDocument],
   )
-
-  const buildNodes = useCallback(
-    (sourceDocument: CanvasDocument): Node[] =>
-      Object.values(sourceDocument.nodes).map((node) => ({
-        id: node.id,
-        type: 'thought',
-        position: node.position,
-        sourcePosition: axis.source,
-        targetPosition: axis.target,
-        data: {
-          thoughtNode: node,
-          controlDock,
-          theme,
-          geminiEnabled,
-          isGenerating: generatingNodeId === node.id,
-          onAddChild: handleAddChild,
-          onGenerate: handleGenerate,
-          onDelete: handleDelete,
-          onToggleExpand: handleToggleExpand,
-          onUpdate: handleUpdate,
-        },
-      })),
-    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleUpdate, theme],
-  )
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))
-  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(document))
-
-  useEffect(() => {
-    setNodes(buildNodes(document))
-    setEdges(buildEdges(document))
-  }, [document, buildNodes, buildEdges, setNodes, setEdges])
 
   const onConnect = useCallback(
     (connection: Connection) => {
