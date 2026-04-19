@@ -29,7 +29,7 @@ save file v1 至少分成：
 - `presentation`
 
 目前先不把 `userPreference` 放進 v1 必填結構。
-如果未來需要，再往後加。
+這不是缺漏，而是刻意簡化，因為這個專案目前只服務 Jones 一人。若未來真的有痛點，再往後加。
 
 ### 3. 版本優先
 所有正式 save file 都必須包含：
@@ -226,14 +226,17 @@ v1 匯入時至少要驗證：
 
 ## Migration 原則
 
+Thinking Canvas 目前是 Jones 單人使用工具，所以 migration 的策略應以「夠用、可理解、低複雜度」為原則。
+
 ### localStorage migration
-本地 localStorage 演進時，應由 app 啟動時做 normalize。
+本地 localStorage 演進時，目前以 app 啟動時 normalize 為主。
+若未來 schema 小改，優先考慮一次性調整或由 agent / LLM 協助轉換。
 
 ### save-file migration
 未來若 v2 出現：
 - 匯入時先看 `version`
-- 若舊版可升級，先 migration 再讀入
-- 若無法升級，至少顯示清楚錯誤訊息
+- 若無法直接讀取，至少顯示清楚錯誤訊息
+- 若需要轉換，優先採小型、客製化轉換，而不是先做通用 migration framework
 
 ## 與 localStorage 的關係
 

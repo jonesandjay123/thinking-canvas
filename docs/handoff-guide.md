@@ -10,9 +10,11 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，正在從
 
 ## 當前最重要目標
 
-目前最重要的不是一次把所有雲端功能做完，而是：
+本地 persistence、save-format spec、最小 export/import 已經完成一個可停的段落。
 
-*先把本地 persistence、storage architecture、save-format thinking 這一段收斂完整。*
+所以下一位接手 agent 的主要目標應該是：
+
+*開始規劃並實作 Firebase / Firestore 的最小雲端 persistence。*
 
 ## 現在的明確限制
 
@@ -26,10 +28,10 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，正在從
 ## 推薦工作順序
 
 1. 先確認目前本地 app 行為穩不穩
-2. 再確認 localStorage 與文件是否同步
-3. 再確認 save-file spec 的概念邊界是否清楚
-4. 然後才做最小 export/import
-5. 最後才談 Firebase / Firestore 映射
+2. 快速讀 README、roadmap、storage architecture，確認單人專案前提
+3. 規劃 Firestore 中 `document` / `presentation` 的邊界
+4. 做最小讀寫與規則草案
+5. 最後才補更細的雲端 polish
 
 ## 你應該優先檢查哪些檔案
 
@@ -55,13 +57,16 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，正在從
 ### 4. 文件要跟上
 如果方向、結構、里程碑改了，就更新文件，不要讓 repo 文件停在過期狀態。
 
+### 5. 記得這是單人專案
+不要自動帶入多人 SaaS 的假設。除非 Jones 明確要求，不需要為 migration framework、user preference 分層、複雜權限模型做過度設計。
+
 ## 目前最理想的下一批輸出
 
 如果你現在要直接開始做，最有價值的是：
-- 文件化 save-file v1 草案
-- 最小 export/import 設計
-- import validation thinking
-- localStorage migration thinking
+- Firebase / Firestore 資料切分草案
+- 最小讀取 / 寫入路徑
+- Firestore rules 草案
+- README / docs 與雲端實作同步
 
 ## 完成後的收尾
 

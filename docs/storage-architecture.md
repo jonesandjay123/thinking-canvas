@@ -84,7 +84,8 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 ### user preference
 更偏向使用者個人環境偏好。
 
-目前可暫時少放，未來再決定是否需要獨立：
+但因為這個專案目前只服務 Jones 一人，所以暫時不需要特地把這層產品化。
+目前保留成概念上的區分即可，未來真的有痛點再拆：
 - theme
 - default zoom behavior
 - panel 開合習慣
@@ -174,11 +175,16 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 
 ## Migration 要想兩種
 
+概念上可以分成兩種，但這個專案目前是 Jones 單人使用，不是多人 SaaS。
+所以現階段不需要做重型 migration framework。
+
 ### 1. localStorage migration
-因為本地資料結構會演進，舊的 localStorage 也可能需要升級。
+目前做法以 normalize + invalid fallback 為主，夠用就好。
+如果未來欄位有小變動，優先考慮一次性轉換或直接由 agent / LLM 協助轉換。
 
 ### 2. save-file migration
-因為 export/import 檔案是長期資產，未來 schema 變更時要能向前相容或至少可提示。
+目前保留 version 與錯誤提示即可。
+未來若 schema 有明顯變動，再做小型、客製化的轉換即可，不必預先做複雜升級鏈。
 
 ## 建議的近期順序
 
