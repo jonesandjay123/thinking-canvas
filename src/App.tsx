@@ -40,6 +40,11 @@ function downloadTextFile(filename: string, content: string) {
   URL.revokeObjectURL(url)
 }
 
+function formatTimestampFilename(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+}
+
 function App() {
   const store = useCanvasStore()
   const [statusMessage, setStatusMessage] = useState('')
@@ -59,7 +64,8 @@ function App() {
       nodeTextScale: store.nodeTextScale,
     })
     const safeTitle = (store.document.canvas.title || 'thinking-canvas').replace(/[^a-z0-9-_]+/gi, '-').toLowerCase()
-    downloadTextFile(`${safeTitle || 'thinking-canvas'}-save-v1.json`, JSON.stringify(saveFile, null, 2))
+    const timestamp = formatTimestampFilename()
+    downloadTextFile(`${safeTitle || 'thinking-canvas'}-${timestamp}.json`, JSON.stringify(saveFile, null, 2))
     setStatusMessage('已匯出 save file v1 JSON。')
     setStatusTone('success')
   }

@@ -25,11 +25,49 @@ type UiSettings = {
   nodeSize: NodeSize
 }
 
+const defaultUiSettings: UiSettings = {
+  aiExpandCount: 3,
+  controlDock: 'top',
+  theme: 'dark',
+  flowDirection: 'TB',
+  nodeTextScale: 20,
+  nodeShape: 'circle',
+  nodeSize: 120,
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function normalizeDocument(value: unknown): CanvasDocument | null {
+  if (!isRecord(value) || !isRecord(value.canvas) || !isRecord(value.nodes)) return null
+
+  const canvas = value.canvas
+  if (
+    typeof canvas.id !== 'string' ||
+    typeof canvas.title !== 'string' ||
+    typeof canvas.rootNodeId !== 'string' ||
+    typeof canvas.createdAt !== 'string' ||
+    typeof canvas.updatedAt !== 'string'
+  ) {
+    return null
+  }
+
+  if (!(canvas.rootNodeId in value.nodes)) return null
+
+  return value as unknown as CanvasDocument
+}
+
 function loadInitialDocument(): CanvasDocument {
   const saved = localStorage.getItem(STORAGE_KEY)
   if (saved) {
     try {
-      return JSON.parse(saved) as CanvasDocument
+      const parsed = JSON.parse(saved) as unknown
+      const normalized = normalizeDocument(parsed)
+      if (normalized) {
+        return normalized
+      }
+      localStorage.removeItem(STORAGE_KEY)
     } catch {
       localStorage.removeItem(STORAGE_KEY)
     }
@@ -43,27 +81,19 @@ function loadUiSettings(): UiSettings {
     try {
       const parsed = JSON.parse(saved) as Partial<UiSettings>
       return {
-        aiExpandCount: Math.min(5, Math.max(1, parsed.aiExpandCount ?? 3)),
-        controlDock: parsed.controlDock ?? 'top',
-        theme: parsed.theme ?? 'dark',
-        flowDirection: parsed.flowDirection ?? 'TB',
-        nodeTextScale: parsed.nodeTextScale ?? 20,
-        nodeShape: parsed.nodeShape ?? 'circle',
-        nodeSize: parsed.nodeSize ?? 120,
+        aiExpandCount: Math.min(5, Math.max(1, parsed.aiExpandCount ?? defaultUiSettings.aiExpandCount)),
+        controlDock: parsed.controlDock ?? defaultUiSettings.controlDock,
+        theme: parsed.theme ?? defaultUiSettings.theme,
+        flowDirection: parsed.flowDirection ?? defaultUiSettings.flowDirection,
+        nodeTextScale: parsed.nodeTextScale ?? defaultUiSettings.nodeTextScale,
+        nodeShape: parsed.nodeShape ?? defaultUiSettings.nodeShape,
+        nodeSize: parsed.nodeSize ?? defaultUiSettings.nodeSize,
       }
     } catch {
       localStorage.removeItem(UI_STORAGE_KEY)
     }
   }
-  return {
-    aiExpandCount: 3,
-    controlDock: 'top',
-    theme: 'dark',
-    flowDirection: 'TB',
-    nodeTextScale: 20,
-    nodeShape: 'circle',
-    nodeSize: 120,
-  }
+  return defaultUiSettings
 }
 
 export interface CanvasStore extends UiSettings {
@@ -132,7 +162,9 @@ export function useCanvasStore(): CanvasStore {
     },
     reset: () => {
       localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(UI_STORAGE_KEY)
       persist(sampleCanvas as CanvasDocument)
+      setUi(defaultUiSettings)
     },
   }
 }
