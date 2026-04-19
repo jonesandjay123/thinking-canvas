@@ -206,6 +206,46 @@ button {
   background: transparent;
 }
 
+.flow-shell .react-flow__renderer,
+.flow-shell .react-flow__viewport,
+.flow-shell .react-flow__edge,
+.flow-shell .react-flow__edge-path,
+.flow-shell .react-flow__nodes {
+  will-change: transform;
+}
+
+.flow-shell .react-flow__node {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.flow-shell .react-flow__node:focus,
+.flow-shell .react-flow__node:focus-visible,
+.flow-shell .react-flow__node.selected {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.flow-shell .react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  opacity: 0;
+}
+
+.flow-shell .react-flow__edge-path {
+  stroke-width: 2.5;
+}
+
+.theme-dark .flow-shell .react-flow__edge-path {
+  stroke: rgba(124, 151, 255, 0.55);
+}
+
+.theme-light .flow-shell .react-flow__edge-path {
+  stroke: rgba(64, 92, 245, 0.42);
+}
+
 .flow-hint-panel {
   padding: 10px 12px;
   border-radius: 12px;
@@ -230,6 +270,10 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+}
+
+.flow-node__handle {
+  pointer-events: none;
 }
 
 .flow-node__bubble {

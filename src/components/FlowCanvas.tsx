@@ -3,8 +3,9 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MiniMap,
+  Handle,
   Panel,
+  Position,
   ReactFlow,
   ReactFlowProvider,
   type Connection,
@@ -46,14 +47,17 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
 
   return (
     <div className={`flow-node theme-${theme} ${thoughtNode.isExpanded ? 'expanded' : 'compact'}`}>
+      <Handle type="target" position={Position.Top} className="flow-node__handle" />
+      <Handle type="source" position={Position.Bottom} className="flow-node__handle" />
+
       <div className="flow-node__bubble" onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}>
         <span className="flow-node__title">{thoughtNode.title}</span>
         <div className={`flow-node__actions flow-node__actions--${controlDock}`}>
-          <button className="icon-button" onClick={() => data.onAddChild(thoughtNode.id)} title="新增子節點">
+          <button className="icon-button nodrag nopan" onClick={() => data.onAddChild(thoughtNode.id)} title="新增子節點">
             +
           </button>
           <button
-            className="icon-button secondary"
+            className="icon-button secondary nodrag nopan"
             onClick={() => data.onGenerate(thoughtNode.id)}
             disabled={!geminiEnabled || isGenerating}
             title={geminiEnabled ? '使用 Gemini 產生子節點建議' : '請先設定 VITE_GEMINI_API_KEY'}
@@ -61,7 +65,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
             {isGenerating ? '…' : '✨'}
           </button>
           {thoughtNode.parentId && (
-            <button className="icon-button danger" onClick={() => data.onDelete(thoughtNode.id)} title="刪除節點">
+            <button className="icon-button danger nodrag nopan" onClick={() => data.onDelete(thoughtNode.id)} title="刪除節點">
               ×
             </button>
           )}
@@ -69,7 +73,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
       </div>
 
       {thoughtNode.isExpanded && (
-        <div className="flow-node__details">
+        <div className="flow-node__details nodrag nopan">
           <div className="flow-node__meta">
             <span className="node-badge">{thoughtNode.type}</span>
             <button className="text-button" onClick={() => data.onToggleExpand(thoughtNode.id)}>
@@ -105,6 +109,8 @@ function buildFlowEdges(document: CanvasDocument): Edge[] {
       source: node.parentId as string,
       target: node.id,
       type: 'smoothstep',
+      sourceHandle: null,
+      targetHandle: null,
     }))
 }
 
@@ -320,7 +326,7 @@ function FlowCanvasInner({
       let changed = false
 
       changes.forEach((change) => {
-        if (change.type !== 'position' || !('position' in change) || !change.position) return
+        if (change.type !== 'position' || !('position' in change) || !change.position || change.dragging) return
         const positionChange = change as NodePositionChange
         const node = nextNodes[positionChange.id]
         if (!node) return
@@ -393,9 +399,10 @@ function FlowCanvasInner({
         minZoom={0.4}
         maxZoom={1.8}
         colorMode={theme}
+        nodesDraggable
+        elevateEdgesOnSelect
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} />
-        <MiniMap pannable zoomable />
         <Controls showInteractive={false} />
         <Panel position="top-right" className="flow-hint-panel">
           雙擊節點可展開細節，拖曳、縮放、edges 交給 React Flow。
