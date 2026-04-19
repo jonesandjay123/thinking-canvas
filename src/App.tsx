@@ -2,10 +2,24 @@ import { useEffect, useState } from 'react'
 import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
 import { geminiReady } from './lib/gemini'
-import type { ControlDock, FlowDirection } from './types/canvas'
+import type { FlowDirection } from './types/canvas'
 
-const dockOptions: ControlDock[] = ['top', 'right', 'bottom', 'left']
 const directionOptions: FlowDirection[] = ['TB', 'BT', 'LR', 'RL']
+
+function getDockForDirection(direction: FlowDirection) {
+  switch (direction) {
+    case 'TB':
+      return 'bottom'
+    case 'BT':
+      return 'top'
+    case 'LR':
+      return 'right'
+    case 'RL':
+      return 'left'
+    default:
+      return 'bottom'
+  }
+}
 
 function App() {
   const store = useCanvasStore()
@@ -43,22 +57,6 @@ function App() {
             ))}
           </select>
 
-          <label className="field-label field-label--spaced" htmlFor="control-dock">
-            Hover 控制位置
-          </label>
-          <select
-            id="control-dock"
-            className="select-input"
-            value={store.controlDock}
-            onChange={(event) => store.setControlDock(event.target.value as ControlDock)}
-          >
-            {dockOptions.map((dock) => (
-              <option key={dock} value={dock}>
-                {dock}
-              </option>
-            ))}
-          </select>
-
           <label className="field-label field-label--spaced" htmlFor="flow-direction">
             方位流向
           </label>
@@ -67,7 +65,10 @@ function App() {
               <button
                 key={direction}
                 className={`secondary direction-button ${store.flowDirection === direction ? 'active' : ''}`}
-                onClick={() => store.setFlowDirection(direction)}
+                onClick={() => {
+                  store.setFlowDirection(direction)
+                  store.setControlDock(getDockForDirection(direction))
+                }}
               >
                 {direction}
               </button>
