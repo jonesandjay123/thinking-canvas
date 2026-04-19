@@ -12,7 +12,7 @@ const shapeOptions: { value: NodeShape; label: string }[] = [
   { value: 'rounded-rect', label: '弧角長方形' },
   { value: 'rounded-square', label: '弧角正方形' },
 ]
-const sizeOptions: NodeSize[] = [140, 180, 220, 260]
+const sizeOptions: NodeSize[] = [80, 120, 160, 200]
 
 function getDockForDirection(direction: FlowDirection) {
   switch (direction) {

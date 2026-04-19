@@ -296,7 +296,7 @@ button {
 
 .flow-node__bubble {
   position: relative;
-  padding: 20px;
+  padding: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -319,7 +319,7 @@ button {
 
 .flow-node__title {
   font-weight: 700;
-  max-width: 82%;
+  max-width: 96%;
   line-height: 1.15;
   word-break: break-word;
 }

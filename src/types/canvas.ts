@@ -4,7 +4,7 @@ export type ControlDock = 'top' | 'right' | 'bottom' | 'left'
 export type FlowDirection = 'TB' | 'BT' | 'LR' | 'RL'
 export type NodeTextScale = 12 | 14 | 16 | 20 | 24 | 28 | 32
 export type NodeShape = 'circle' | 'ellipse' | 'rounded-rect' | 'rounded-square'
-export type NodeSize = 140 | 180 | 220 | 260
+export type NodeSize = 80 | 120 | 160 | 200
 
 export interface Canvas {
   id: string
