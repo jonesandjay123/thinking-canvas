@@ -17,14 +17,27 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { generateChildSuggestions } from '../lib/gemini'
-import type { CanvasDocument, ControlDock, FlowDirection, NodeTextScale, ThemeMode, ThoughtNode } from '../types/canvas'
+import type {
+  CanvasDocument,
+  ControlDock,
+  FlowDirection,
+  NodeShape,
+  NodeSize,
+  NodeTextScale,
+  ThemeMode,
+  ThoughtNode,
+} from '../types/canvas'
 
 type FlowNodeData = {
   thoughtNode: ThoughtNode
+  liveTitle: string
+  liveContent: string
   controlDock: ControlDock
   sourcePosition: Position
   targetPosition: Position
   textScale: NodeTextScale
+  shape: NodeShape
+  size: NodeSize
   theme: ThemeMode
   geminiEnabled: boolean
   isGenerating: boolean
@@ -33,6 +46,7 @@ type FlowNodeData = {
   onDelete: (id: string) => void
   onToggleExpand: (id: string) => void
   onCommit: (id: string, patch: Partial<ThoughtNode>) => void
+  onLiveChange: (id: string, patch: Partial<ThoughtNode>) => void
 }
 
 interface FlowCanvasProps {
@@ -41,6 +55,8 @@ interface FlowCanvasProps {
   controlDock: ControlDock
   flowDirection: FlowDirection
   nodeTextScale: NodeTextScale
+  nodeShape: NodeShape
+  nodeSize: NodeSize
   theme: ThemeMode
   geminiEnabled: boolean
   onDocumentChange: (document: CanvasDocument) => void
@@ -112,18 +128,80 @@ function layoutDocument(document: CanvasDocument, direction: FlowDirection): Can
   }
 }
 
+function getBubbleStyle(shape: NodeShape, size: NodeSize) {
+  switch (shape) {
+    case 'ellipse':
+      return {
+        width: `${size + 48}px`,
+        height: `${size}px`,
+        borderRadius: `${Math.round(size / 2)}px`,
+      }
+    case 'rounded-rect':
+      return {
+        width: `${size + 56}px`,
+        height: `${Math.max(120, size - 24)}px`,
+        borderRadius: '28px',
+      }
+    case 'rounded-square':
+      return {
+        width: `${size}px`,
+        height: `${size}px`,
+        borderRadius: '28px',
+      }
+    case 'circle':
+    default:
+      return {
+        width: `${size}px`,
+        height: `${size}px`,
+        borderRadius: '999px',
+      }
+  }
+}
+
 function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
-  const { thoughtNode, controlDock, sourcePosition, targetPosition, textScale, theme, geminiEnabled, isGenerating } = data
-  const [draftTitle, setDraftTitle] = useState(thoughtNode.title)
-  const [draftContent, setDraftContent] = useState(thoughtNode.content)
+  const {
+    thoughtNode,
+    liveTitle,
+    liveContent,
+    controlDock,
+    sourcePosition,
+    targetPosition,
+    textScale,
+    shape,
+    size,
+    theme,
+    geminiEnabled,
+    isGenerating,
+  } = data
+  const [draftTitle, setDraftTitle] = useState(liveTitle)
+  const [draftContent, setDraftContent] = useState(liveContent)
+  const debounceRef = useRef<number | null>(null)
 
   useEffect(() => {
-    setDraftTitle(thoughtNode.title)
-  }, [thoughtNode.title])
+    setDraftTitle(liveTitle)
+  }, [liveTitle])
 
   useEffect(() => {
-    setDraftContent(thoughtNode.content)
-  }, [thoughtNode.content])
+    setDraftContent(liveContent)
+  }, [liveContent])
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current)
+      }
+    }
+  }, [])
+
+  const scheduleCommit = (nextPatch: Partial<ThoughtNode>) => {
+    data.onLiveChange(thoughtNode.id, nextPatch)
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current)
+    }
+    debounceRef.current = window.setTimeout(() => {
+      data.onCommit(thoughtNode.id, nextPatch)
+    }, 220)
+  }
 
   const commitDrafts = () => {
     const patch: Partial<ThoughtNode> = {}
@@ -134,13 +212,15 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
     }
   }
 
+  const bubbleStyle = getBubbleStyle(shape, size)
+
   return (
-    <div className={`flow-node theme-${theme} ${thoughtNode.isExpanded ? 'expanded' : 'compact'}`}>
+    <div className={`flow-node theme-${theme} ${thoughtNode.isExpanded ? 'expanded' : 'compact'}`} style={{ width: bubbleStyle.width }}>
       <Handle type="target" position={targetPosition} className="flow-node__handle" />
       <Handle type="source" position={sourcePosition} className="flow-node__handle" />
 
-      <div className="flow-node__bubble" onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}>
-        <span className="flow-node__title" style={{ fontSize: `${textScale}px` }}>{thoughtNode.title}</span>
+      <div className={`flow-node__bubble flow-node__bubble--${shape}`} style={bubbleStyle} onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}>
+        <span className="flow-node__title" style={{ fontSize: `${textScale}px` }}>{liveTitle}</span>
         <div className={`flow-node__actions flow-node__actions--${controlDock}`}>
           <button className="icon-button nodrag nopan" onClick={() => data.onAddChild(thoughtNode.id)} title="新增子節點">
             +
@@ -172,14 +252,22 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
           <input
             className="flow-node__input"
             value={draftTitle}
-            onChange={(event) => setDraftTitle(event.target.value)}
+            onChange={(event) => {
+              const next = event.target.value
+              setDraftTitle(next)
+              scheduleCommit({ title: next, content: draftContent })
+            }}
             onBlur={commitDrafts}
           />
           <textarea
             className="flow-node__textarea"
             value={draftContent}
             placeholder="在這裡寫下這個節點的內容..."
-            onChange={(event) => setDraftContent(event.target.value)}
+            onChange={(event) => {
+              const next = event.target.value
+              setDraftContent(next)
+              scheduleCommit({ title: draftTitle, content: next })
+            }}
             onBlur={commitDrafts}
           />
         </div>
@@ -214,12 +302,15 @@ function FlowCanvasInner({
   controlDock,
   flowDirection,
   nodeTextScale,
+  nodeShape,
+  nodeSize,
   theme,
   geminiEnabled,
   onDocumentChange,
   onStatus,
 }: FlowCanvasProps) {
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
+  const [liveDrafts, setLiveDrafts] = useState<Record<string, Partial<ThoughtNode>>>({})
   const lastFlowDirectionRef = useRef<FlowDirection>(flowDirection)
 
   const axis = useMemo(() => getFlowAxis(flowDirection), [flowDirection])
@@ -232,6 +323,18 @@ function FlowCanvasInner({
       })
     },
     [onDocumentChange],
+  )
+
+  const getNodeWithLiveDraft = useCallback(
+    (nodeId: string) => {
+      const node = document.nodes[nodeId]
+      if (!node) return null
+      return {
+        ...node,
+        ...liveDrafts[nodeId],
+      }
+    },
+    [document.nodes, liveDrafts],
   )
 
   const handleAddChild = useCallback(
@@ -303,7 +406,7 @@ function FlowCanvasInner({
 
   const handleToggleExpand = useCallback(
     (nodeId: string) => {
-      const node = document.nodes[nodeId]
+      const node = getNodeWithLiveDraft(nodeId)
       if (!node) return
       persistDocument({
         ...document,
@@ -317,8 +420,18 @@ function FlowCanvasInner({
         },
       })
     },
-    [document, persistDocument],
+    [document, getNodeWithLiveDraft, persistDocument],
   )
+
+  const handleLiveChange = useCallback((nodeId: string, patch: Partial<ThoughtNode>) => {
+    setLiveDrafts((current) => ({
+      ...current,
+      [nodeId]: {
+        ...current[nodeId],
+        ...patch,
+      },
+    }))
+  }, [])
 
   const handleCommit = useCallback(
     (nodeId: string, patch: Partial<ThoughtNode>) => {
@@ -334,6 +447,11 @@ function FlowCanvasInner({
             updatedAt: new Date().toISOString(),
           },
         },
+      })
+      setLiveDrafts((current) => {
+        const next = { ...current }
+        delete next[nodeId]
+        return next
       })
     },
     [document, persistDocument],
@@ -356,19 +474,25 @@ function FlowCanvasInner({
 
   const handleGenerate = useCallback(
     async (nodeId: string) => {
-      const node = document.nodes[nodeId]
+      const node = getNodeWithLiveDraft(nodeId)
       if (!node) return
 
       setGeneratingNodeId(nodeId)
       onStatus('', 'neutral')
       try {
-        const suggestions = await generateChildSuggestions(document, node, aiExpandCount)
+        const workingDocument: CanvasDocument = {
+          ...document,
+          nodes: Object.fromEntries(
+            Object.entries(document.nodes).map(([id, original]) => [id, { ...original, ...liveDrafts[id] }]),
+          ),
+        }
+        const suggestions = await generateChildSuggestions(workingDocument, node, aiExpandCount)
         if (!suggestions.length) {
           onStatus('Gemini 沒有產出可用建議，請再試一次。', 'error')
           return
         }
 
-        let nextDocument = document
+        let nextDocument = workingDocument
         suggestions.forEach((title, index) => {
           const parent = nextDocument.nodes[nodeId]
           const id = Math.random().toString(36).slice(2, 10)
@@ -414,34 +538,42 @@ function FlowCanvasInner({
         setGeneratingNodeId(null)
       }
     },
-    [aiExpandCount, axis.x, axis.y, document, flowDirection, onStatus, persistDocument],
+    [aiExpandCount, axis.x, axis.y, document, flowDirection, getNodeWithLiveDraft, liveDrafts, onStatus, persistDocument],
   )
 
   const buildNodes = useCallback(
     (sourceDocument: CanvasDocument): Node[] =>
-      Object.values(sourceDocument.nodes).map((node) => ({
-        id: node.id,
-        type: 'thought',
-        position: node.position,
-        sourcePosition: axis.source,
-        targetPosition: axis.target,
-        data: {
-          thoughtNode: node,
-          controlDock,
+      Object.values(sourceDocument.nodes).map((node) => {
+        const liveNode = { ...node, ...liveDrafts[node.id] }
+        return {
+          id: node.id,
+          type: 'thought',
+          position: node.position,
           sourcePosition: axis.source,
           targetPosition: axis.target,
-          textScale: nodeTextScale,
-          theme,
-          geminiEnabled,
-          isGenerating: generatingNodeId === node.id,
-          onAddChild: handleAddChild,
-          onGenerate: handleGenerate,
-          onDelete: handleDelete,
-          onToggleExpand: handleToggleExpand,
-          onCommit: handleCommit,
-        },
-      })),
-    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, nodeTextScale, theme],
+          data: {
+            thoughtNode: node,
+            liveTitle: liveNode.title,
+            liveContent: liveNode.content,
+            controlDock,
+            sourcePosition: axis.source,
+            targetPosition: axis.target,
+            textScale: nodeTextScale,
+            shape: nodeShape,
+            size: nodeSize,
+            theme,
+            geminiEnabled,
+            isGenerating: generatingNodeId === node.id,
+            onAddChild: handleAddChild,
+            onGenerate: handleGenerate,
+            onDelete: handleDelete,
+            onToggleExpand: handleToggleExpand,
+            onCommit: handleCommit,
+            onLiveChange: handleLiveChange,
+          },
+        }
+      }),
+    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, handleLiveChange, liveDrafts, nodeShape, nodeSize, nodeTextScale, theme],
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))
@@ -477,60 +609,58 @@ function FlowCanvasInner({
       if (!connection.source || !connection.target) return
       const child = document.nodes[connection.target]
       const parent = document.nodes[connection.source]
-      if (!child || !parent || child.parentId === connection.source) return
+      if (!child || !parent || child.parentId === parent.id || child.id === document.canvas.rootNodeId) return
 
-      const timestamp = new Date().toISOString()
-      const previousParentId = child.parentId
-      const nextNodes = { ...document.nodes }
-
-      if (previousParentId && nextNodes[previousParentId]) {
-        nextNodes[previousParentId] = {
-          ...nextNodes[previousParentId],
-          childIds: nextNodes[previousParentId].childIds.filter((id) => id !== child.id),
-          updatedAt: timestamp,
-        }
-      }
-
-      nextNodes[connection.source] = {
-        ...parent,
-        childIds: [...parent.childIds, child.id],
-        updatedAt: timestamp,
-      }
-
-      nextNodes[child.id] = {
-        ...child,
-        parentId: connection.source,
-        updatedAt: timestamp,
-      }
-
-      persistDocument({ ...document, nodes: nextNodes })
-      onStatus('已更新節點連線關係。', 'success')
+      persistDocument({
+        ...document,
+        nodes: {
+          ...document.nodes,
+          ...(child.parentId
+            ? {
+                [child.parentId]: {
+                  ...document.nodes[child.parentId],
+                  childIds: document.nodes[child.parentId].childIds.filter((id) => id !== child.id),
+                  updatedAt: new Date().toISOString(),
+                },
+              }
+            : {}),
+          [parent.id]: {
+            ...parent,
+            childIds: Array.from(new Set([...parent.childIds, child.id])),
+            updatedAt: new Date().toISOString(),
+          },
+          [child.id]: {
+            ...child,
+            parentId: parent.id,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      })
     },
-    [document, onStatus, persistDocument],
+    [document, persistDocument],
   )
 
   return (
-    <div className={`flow-shell theme-${theme}`}>
+    <div className="flow-shell">
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}
         onConnect={onConnect}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.4}
+        nodeTypes={nodeTypes}
+        colorMode={theme === 'dark' ? 'dark' : 'light'}
+        minZoom={0.2}
         maxZoom={1.8}
-        colorMode={theme}
-        nodesDraggable
-        elevateEdgesOnSelect
+        fitViewOptions={{ padding: 0.22 }}
+        proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} />
-        <Controls showInteractive={false} />
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
+        <Controls showInteractive={false} position="bottom-right" />
         <Panel position="top-right" className="flow-hint-panel">
-          雙擊節點可展開細節，流向可從左側切換。
+          Double click a node to edit, drag to reposition, connect handles to re-parent.
         </Panel>
       </ReactFlow>
     </div>

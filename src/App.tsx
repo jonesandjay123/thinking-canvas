@@ -2,10 +2,17 @@ import { useEffect, useState } from 'react'
 import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
 import { geminiReady } from './lib/gemini'
-import type { FlowDirection, NodeTextScale } from './types/canvas'
+import type { FlowDirection, NodeShape, NodeSize, NodeTextScale } from './types/canvas'
 
 const directionOptions: FlowDirection[] = ['TB', 'BT', 'LR', 'RL']
 const textScaleOptions: NodeTextScale[] = [12, 14, 16, 20, 24, 28, 32]
+const shapeOptions: { value: NodeShape; label: string }[] = [
+  { value: 'circle', label: '圓形' },
+  { value: 'ellipse', label: '橢圓' },
+  { value: 'rounded-rect', label: '弧角長方形' },
+  { value: 'rounded-square', label: '弧角正方形' },
+]
+const sizeOptions: NodeSize[] = [140, 180, 220, 260]
 
 function getDockForDirection(direction: FlowDirection) {
   switch (direction) {
@@ -54,6 +61,38 @@ function App() {
             {[1, 2, 3, 4, 5].map((count) => (
               <option key={count} value={count}>
                 {count}
+              </option>
+            ))}
+          </select>
+
+          <label className="field-label field-label--spaced" htmlFor="node-shape">
+            節點形狀
+          </label>
+          <select
+            id="node-shape"
+            className="select-input"
+            value={store.nodeShape}
+            onChange={(event) => store.setNodeShape(event.target.value as NodeShape)}
+          >
+            {shapeOptions.map((shape) => (
+              <option key={shape.value} value={shape.value}>
+                {shape.label}
+              </option>
+            ))}
+          </select>
+
+          <label className="field-label field-label--spaced" htmlFor="node-size">
+            節點大小
+          </label>
+          <select
+            id="node-size"
+            className="select-input"
+            value={store.nodeSize}
+            onChange={(event) => store.setNodeSize(Number(event.target.value) as NodeSize)}
+          >
+            {sizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {size}px
               </option>
             ))}
           </select>
@@ -107,6 +146,8 @@ function App() {
           controlDock={store.controlDock}
           flowDirection={store.flowDirection}
           nodeTextScale={store.nodeTextScale}
+          nodeShape={store.nodeShape}
+          nodeSize={store.nodeSize}
           theme={store.theme}
           geminiEnabled={geminiReady()}
           onDocumentChange={store.setDocument}
