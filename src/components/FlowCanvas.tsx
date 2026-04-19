@@ -22,6 +22,8 @@ import type { CanvasDocument, ControlDock, FlowDirection, ThemeMode, ThoughtNode
 type FlowNodeData = {
   thoughtNode: ThoughtNode
   controlDock: ControlDock
+  sourcePosition: Position
+  targetPosition: Position
   theme: ThemeMode
   geminiEnabled: boolean
   isGenerating: boolean
@@ -109,7 +111,7 @@ function layoutDocument(document: CanvasDocument, direction: FlowDirection): Can
 }
 
 function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
-  const { thoughtNode, controlDock, theme, geminiEnabled, isGenerating } = data
+  const { thoughtNode, controlDock, sourcePosition, targetPosition, theme, geminiEnabled, isGenerating } = data
   const [draftTitle, setDraftTitle] = useState(thoughtNode.title)
   const [draftContent, setDraftContent] = useState(thoughtNode.content)
 
@@ -132,8 +134,8 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
 
   return (
     <div className={`flow-node theme-${theme} ${thoughtNode.isExpanded ? 'expanded' : 'compact'}`}>
-      <Handle type="target" position={Position.Top} className="flow-node__handle" />
-      <Handle type="source" position={Position.Bottom} className="flow-node__handle" />
+      <Handle type="target" position={targetPosition} className="flow-node__handle" />
+      <Handle type="source" position={sourcePosition} className="flow-node__handle" />
 
       <div className="flow-node__bubble" onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}>
         <span className="flow-node__title">{thoughtNode.title}</span>
@@ -423,6 +425,8 @@ function FlowCanvasInner({
         data: {
           thoughtNode: node,
           controlDock,
+          sourcePosition: axis.source,
+          targetPosition: axis.target,
           theme,
           geminiEnabled,
           isGenerating: generatingNodeId === node.id,
