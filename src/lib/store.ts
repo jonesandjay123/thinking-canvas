@@ -20,15 +20,18 @@ function loadInitialDocument(): CanvasDocument {
 export interface CanvasStore {
   document: CanvasDocument
   nodes: ThoughtNode[]
+  aiExpandCount: number
   createChild: (parentId: string, partial?: Partial<ThoughtNode>) => void
   updateNode: (nodeId: string, patch: Partial<ThoughtNode>) => void
   deleteNode: (nodeId: string) => void
   moveNode: (nodeId: string, position: ThoughtNode['position']) => void
+  setAiExpandCount: (count: number) => void
   reset: () => void
 }
 
 export function useCanvasStore(): CanvasStore {
   const [document, setDocument] = useState<CanvasDocument>(() => loadInitialDocument())
+  const [aiExpandCount, setAiExpandCount] = useState(3)
 
   const persist = (nextDocument: CanvasDocument) => {
     setDocument(nextDocument)
@@ -40,6 +43,7 @@ export function useCanvasStore(): CanvasStore {
   return {
     document,
     nodes,
+    aiExpandCount,
     createChild: (parentId: string, partial?: Partial<ThoughtNode>) =>
       persist(createNode(document, parentId, partial)),
     updateNode: (nodeId: string, patch: Partial<ThoughtNode>) =>
@@ -47,6 +51,7 @@ export function useCanvasStore(): CanvasStore {
     deleteNode: (nodeId: string) => persist(deleteNode(document, nodeId)),
     moveNode: (nodeId: string, position: ThoughtNode['position']) =>
       persist(moveNode(document, nodeId, position)),
+    setAiExpandCount: (count: number) => setAiExpandCount(Math.min(5, Math.max(1, count))),
     reset: () => {
       localStorage.removeItem(STORAGE_KEY)
       persist(sampleCanvas as CanvasDocument)

@@ -22,6 +22,7 @@ export interface ThoughtNode {
     x: number
     y: number
   }
+  isExpanded?: boolean
   createdAt: string
   updatedAt: string
 }

@@ -32,47 +32,55 @@ export function NodeCard({
   onDragStart,
 }: NodeCardProps) {
   return (
-    <div className={`node-card ${isRoot ? 'root' : ''}`}>
-      <div className="node-card__meta">
-        <span className="node-badge">{typeLabelMap[node.type]}</span>
-        <span className="node-tagline">#{node.id}</span>
-      </div>
-
-      <div className="node-card__drag-handle" onPointerDown={(event) => onDragStart(node.id, event)}>
-        ⋮⋮ 拖曳移動
-      </div>
-
-      <input
-        className="node-card__title"
-        value={node.title}
-        onPointerDown={(event) => event.stopPropagation()}
-        onChange={(event) => onChange(node.id, { title: event.target.value })}
-      />
-
-      <textarea
-        className="node-card__content"
-        value={node.content}
-        placeholder="在這裡寫下這個節點的內容..."
-        onPointerDown={(event) => event.stopPropagation()}
-        onChange={(event) => onChange(node.id, { content: event.target.value })}
-      />
-
-      <div className="node-card__footer node-card__footer--stacked">
-        <button onClick={() => onAddChild(node.id)}>+ 新增子節點</button>
-        <button
-          className="secondary"
-          onClick={() => onGenerate(node.id)}
-          disabled={!geminiEnabled || isGenerating}
-          title={geminiEnabled ? '使用 Gemini 產生子節點建議' : '請先設定 VITE_GEMINI_API_KEY'}
-        >
-          {isGenerating ? 'Gemini 產生中...' : '✨ Gemini 展開'}
-        </button>
-        {!isRoot && (
-          <button className="danger" onClick={() => onDelete(node.id)}>
-            刪除
+    <div
+      className={`node-card ${isRoot ? 'root' : ''} ${node.isExpanded ? 'expanded' : 'compact'}`}
+      onDoubleClick={() => onChange(node.id, { isExpanded: !node.isExpanded })}
+    >
+      <div className="node-card__bubble" onPointerDown={(event) => onDragStart(node.id, event)}>
+        <span className="node-card__title-text">{node.title}</span>
+        <div className="node-card__hover-actions" onPointerDown={(event) => event.stopPropagation()}>
+          <button className="icon-button" onClick={() => onAddChild(node.id)} title="新增子節點">
+            +
           </button>
-        )}
+          <button
+            className="icon-button secondary"
+            onClick={() => onGenerate(node.id)}
+            disabled={!geminiEnabled || isGenerating}
+            title={geminiEnabled ? '使用 Gemini 產生子節點建議' : '請先設定 VITE_GEMINI_API_KEY'}
+          >
+            {isGenerating ? '…' : '✨'}
+          </button>
+          {!isRoot && (
+            <button className="icon-button danger" onClick={() => onDelete(node.id)} title="刪除節點">
+              ×
+            </button>
+          )}
+        </div>
       </div>
+
+      {node.isExpanded && (
+        <div className="node-card__details" onPointerDown={(event) => event.stopPropagation()}>
+          <div className="node-card__meta">
+            <span className="node-badge">{typeLabelMap[node.type]}</span>
+            <button className="text-button" onClick={() => onChange(node.id, { isExpanded: false })}>
+              收合
+            </button>
+          </div>
+
+          <input
+            className="node-card__title"
+            value={node.title}
+            onChange={(event) => onChange(node.id, { title: event.target.value })}
+          />
+
+          <textarea
+            className="node-card__content"
+            value={node.content}
+            placeholder="在這裡寫下這個節點的內容..."
+            onChange={(event) => onChange(node.id, { content: event.target.value })}
+          />
+        </div>
+      )}
     </div>
   )
 }
