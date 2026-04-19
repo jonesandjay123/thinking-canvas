@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -194,6 +194,7 @@ function FlowCanvasInner({
   onStatus,
 }: FlowCanvasProps) {
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null)
+  const lastFlowDirectionRef = useRef<FlowDirection>(flowDirection)
 
   const axis = useMemo(() => getFlowAxis(flowDirection), [flowDirection])
 
@@ -213,6 +214,9 @@ function FlowCanvasInner({
   )
 
   useEffect(() => {
+    if (lastFlowDirectionRef.current === flowDirection) return
+    lastFlowDirectionRef.current = flowDirection
+
     const relaid = layoutDocument(document, flowDirection)
     if (JSON.stringify(relaid.nodes) !== JSON.stringify(document.nodes)) {
       persistDocument(relaid)
