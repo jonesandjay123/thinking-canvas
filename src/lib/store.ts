@@ -55,7 +55,7 @@ function loadUiSettings(): {
         flowDirection: parsed.flowDirection ?? 'TB',
         nodeTextScale: parsed.nodeTextScale ?? 20,
         nodeShape: parsed.nodeShape ?? 'circle',
-        nodeSize: parsed.nodeSize ?? 160,
+        nodeSize: parsed.nodeSize ?? 120,
       }
     } catch {
       localStorage.removeItem(UI_STORAGE_KEY)
@@ -68,7 +68,7 @@ function loadUiSettings(): {
     flowDirection: 'TB',
     nodeTextScale: 20,
     nodeShape: 'circle',
-    nodeSize: 160,
+    nodeSize: 120,
   }
 }
 
