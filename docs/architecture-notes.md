@@ -1,111 +1,108 @@
 # Architecture Notes
 
-## v0 技術判斷
+## 當前技術判斷
 
 ### 結論
-- 前端主體優先
-- 暫不引入 Python backend
-- 明天以 Firebase Hosting 可部署為主
-- Firestore 預留接口，但不必今天就做完
+- 前端主體已成立
+- React Flow 已作為主畫布層
+- localStorage 已作為目前的 workspace persistence
+- 下一步優先是 storage architecture 與 save-file thinking，而不是急著直接綁死雲端資料結構
 
 ## 架構原則
 
-### 1. Spec repo 要變成可跑 app repo
-目前 repo 已經有產品方向與 sample data。
-下一步不能再只加文件，必須補出最小可執行 app。
-
-### 2. Schema 要比現在更明確
-目前 sample data 已經有方向，但需要升級成更正式的 schema。
-
-建議拆成兩層：
-- Canvas
-- Node
-
-### 3. Component 不要直接綁死資料結構
-資料層、操作層、畫面層要分開。
-
-建議至少有：
+### 1. UI、操作、資料層仍然分開
+目前專案已具備以下主幹：
 - `src/types/canvas.ts`
 - `src/lib/store.ts`
 - `src/lib/actions.ts`
-- `src/components/*`
+- `src/components/FlowCanvas.tsx`
 
-### 4. Agent action surface 要早點定義
-這專案的重點不只是 UI，而是 Jarvis 也能穩定操作。
+這個分層應繼續保持。
 
-建議至少定義以下 action：
-- `createNode`
-- `updateNode`
-- `deleteNode`
-- `moveNode`
-- `attachChild`
-- `detachChild`
-- `addLink`
-- `removeLink`
+### 2. React Flow 是畫布層，不是資料模型
+React Flow 解決的是：
+- 節點渲染
+- edge rendering
+- zoom / pan / controls
+- 拖曳互動
 
-AI 相關 action 可晚一點再補：
-- `expandNodeWithAI`
-- `summarizeSubtree`
-- `suggestLinks`
+但真正資料模型仍應由 app 自己掌握，而不是被 React Flow shape 綁死。
 
-## 建議 schema
+### 3. storage architecture 要明確分層
+目前建議明確分成三層：
+- runtime state
+- workspace persistence（目前是 localStorage）
+- portable save format（未來 export/import）
+
+詳見：`docs/storage-architecture.md`
+
+### 4. document 與 presentation 要分開思考
+目前已可確認：
+- document 是核心思考內容
+- presentation 是這張畫布如何被呈現
+
+未來 user preference 是否獨立，可在 export/import spec 階段再決定。
+
+## 目前 schema 現況
 
 ### Canvas
 ```ts
 interface Canvas {
-  id: string;
-  title: string;
-  rootNodeId: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  title: string
+  rootNodeId: string
+  createdAt: string
+  updatedAt: string
 }
 ```
 
 ### Node
 ```ts
 interface ThoughtNode {
-  id: string;
-  canvasId: string;
-  title: string;
-  content: string;
-  childIds: string[];
-  parentId: string | null;
-  links: string[];
-  tags: string[];
-  type: 'root' | 'idea' | 'project' | 'principle' | 'note';
-  position: { x: number; y: number };
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  canvasId: string
+  title: string
+  content: string
+  childIds: string[]
+  parentId: string | null
+  links: string[]
+  tags: string[]
+  type: 'root' | 'idea' | 'project' | 'principle' | 'note'
+  position: { x: number; y: number }
+  isExpanded?: boolean
+  createdAt: string
+  updatedAt: string
 }
 ```
 
-## 資料層判斷
+## Persistence 現況
 
-### v0
-- local sample JSON
-- 或 localStorage
-- 操作邏輯先穩定
+### localStorage keys
+- `thinking-canvas-document`
+- `thinking-canvas-ui`
 
-### v0.5
-- Firestore persistence
-- 為 Jarvis 直接操作資料預留穩定格式
+### 目前 UI persistence 範圍
+- AI 展開數量
+- controlDock
+- theme
+- flowDirection
+- nodeTextScale
+- nodeShape
+- nodeSize
 
-### v1
-- serverless proxy for Gemini
-- 正式金鑰不進前端
+## 近期最重要的技術問題
 
-## 部署判斷
+1. localStorage migration 要不要補
+2. save-file v1 要不要沿用 runtime shape
+3. export/import validation 怎麼做最小可用版本
+4. presentation 與 user preference 邊界怎麼切
 
-### GitHub Pages vs Firebase Hosting
-對這個專案來說，Firebase Hosting 比 GitHub Pages 更適合，因為：
-- 之後比較自然接 Firestore
-- 之後比較自然補 Functions / proxy
-- 比較符合這個 app 會長大的方向
+## 與 Firebase 的關係
 
-## 實作優先序
-1. React/Vite scaffold
-2. 型別與 sample data 對齊
-3. store / actions
-4. 最小 Canvas UI
-5. CRUD
-6. Firebase Hosting 部署
+Firebase / Firestore 仍然是合理方向，但現在不應搶在 schema thinking 前面。
+
+比較穩的順序是：
+1. 本地 persistence 穩定
+2. save-file spec 清楚
+3. export/import 最小可用
+4. 再做 Firestore 映射

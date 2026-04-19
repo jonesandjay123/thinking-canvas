@@ -5,92 +5,87 @@
 
 ## 北極星目標
 
-*明天上 Firebase，並且有一個可以實際打開來玩的初版 Thinking Canvas。*
+Thinking Canvas 要從「可互動的畫布」穩定長成「可保存、可搬移、可累積」的思考系統。
+
+## 當前階段定位
+
+目前已完成一個可操作的本地版本基底，包含：
+- React + Vite + TypeScript app
+- React Flow 畫布
+- 節點 CRUD
+- 本地 localStorage persistence
+- 基本 UI 控制面板
+- 基本 Gemini prototype 展開
+
+現在的下一個合理里程碑，不是一次把所有雲端功能做到底，而是：
+
+> 先把本地 storage / save-format 這個段落收斂完成，再往 export/import 與 Firebase 前進。
 
 ## 現在不要做的事
 
-在達成上面的目標前，不要分心去做：
+在本地 storage 段落收斂前，不要分心去做：
 - Python backend
-- Gemini 正式接入
 - 複雜 graph engine
-- 過度設計的權限系統
-- 太花時間的 UI 美化
+- 過度設計的多人協作
+- 太早綁死 Firestore schema
+- 重型 UI polish
 
-## Phase 0, 今天晚上要完成的事
+## Phase 1, 本地工作段落（現在）
 
-### 0.1 建 app scaffold
-- [ ] 建立 `package.json`
-- [ ] 安裝 React + Vite + TypeScript 基本骨架
-- [ ] 建立 `src/main.tsx`
-- [ ] 建立 `src/App.tsx`
-- [ ] 確保 `npm run dev` 可開
-- [ ] 確保 `npm run build` 可過
+### 1.1 穩定本地 persistence
+- [x] localStorage 保存 document
+- [x] localStorage 保存主要 UI 設定
+- [ ] 明確定義 localStorage migration 策略
+- [ ] 補最小 reset / recovery thinking
 
-### 0.2 定正式 schema
-- [ ] 建立 `src/types/canvas.ts`
-- [ ] 定義 `Canvas`
-- [ ] 定義 `ThoughtNode`
-- [ ] 定義 `CanvasDocument` 或等價集合型別
-- [ ] 將 `src/data/sample-canvas.json` 對齊 schema
+### 1.2 定 storage architecture
+- [x] 文件化 runtime / workspace persistence / portable save format 三層模型
+- [x] 文件化 document / presentation / user preference 概念邊界
+- [ ] 決定 save-file v1 的正式欄位清單
+- [ ] 決定 import validation 最小規則
 
-### 0.3 建 store 與 actions
-- [ ] 建立 `src/lib/store.ts`
-- [ ] 建立 `src/lib/actions.ts`
-- [ ] 支援 `createNode`
-- [ ] 支援 `updateNode`
-- [ ] 支援 `deleteNode`
-- [ ] 支援 `moveNode`（最簡單版本即可）
-- [ ] 支援 `attachChild` / `detachChild`（如需要）
+### 1.3 文件同步
+- [x] README 更新為目前真實狀態
+- [x] roadmap 更新為本地段落優先
+- [x] 補 storage architecture 文件
+- [ ] handoff guide 同步更新為新階段語氣
 
-### 0.4 做最小 UI
-- [ ] 建立 `src/components/CanvasView.tsx`
-- [ ] 建立 `src/components/NodeCard.tsx`
-- [ ] 至少能 render root + child nodes
-- [ ] 可新增節點
-- [ ] 可編輯 title/content
-- [ ] 可刪除節點
-- [ ] 畫面不追求美，只追求可用
+## Phase 2, 本地存檔能力
 
-## Phase 1, 明天上 Firebase 前
+### 2.1 最小 export/import
+- [ ] 匯出 versioned JSON file
+- [ ] 匯入 versioned JSON file
+- [ ] 對 schema 不符做提示
+- [ ] 對 version 不符做提示或 migration
 
-### 1.1 清 deployment path
-- [ ] 建立 Firebase 專案設定
-- [ ] 加入 Hosting 配置
-- [ ] 驗證 build output 可部署
-- [ ] 完成第一次 Firebase Hosting deploy
+### 2.2 Save file spec v1
+- [ ] 定義 `app`
+- [ ] 定義 `version`
+- [ ] 定義 `exportedAt`
+- [ ] 定義 `document`
+- [ ] 定義 `presentation`
+- [ ] 決定是否暫不納入 `userPreference`
 
-### 1.2 補最基本 persistence
-二選一即可，先求快：
-- [ ] localStorage
-- [ ] 或 Firestore（如果時間夠）
+## Phase 3, 雲端 persistence
 
-### 1.3 補最少文件
-- [ ] README 保持同步
-- [ ] 若架構有改，更新 `docs/architecture-notes.md`
-- [ ] 若任務順序有改，更新本檔
+### 3.1 Firebase / Firestore 對接
+- [ ] 決定 Firestore document 切法
+- [ ] 決定 document 與 presentation 的雲端邊界
+- [ ] 補最小讀寫
+- [ ] 補最小安全規則
 
-## Phase 2, 初版可玩之後
-
-### 2.1 Firestore 對接
-- [ ] 將 canvas 讀寫接到 Firestore
-- [ ] 確定資料格式適合 Jarvis 直接操作
-- [ ] 設定最基本的 Firestore rules
-
-### 2.2 Agent-friendly 操作面
+### 3.2 Agent-friendly 操作面
 - [ ] 明確整理可操作 action
 - [ ] 規劃 Jarvis 未來透過 SDK 或 API 修改資料的方式
-
-### 2.3 AI enhancement
-- [ ] 補極薄 serverless proxy
-- [ ] 再接 Gemini 的 node expansion
 
 ## 每次接手前必讀
 
 任何 agent 接手前，請先讀：
 1. `README.md`
 2. `docs/roadmap.md`
-3. `docs/handoff-guide.md`
-4. `docs/architecture-notes.md`
+3. `docs/storage-architecture.md`
+4. `docs/handoff-guide.md`
+5. `docs/architecture-notes.md`
 
 ## 每完成一個階段後必做
 
