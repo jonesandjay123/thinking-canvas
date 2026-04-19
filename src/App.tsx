@@ -5,7 +5,7 @@ import { geminiReady } from './lib/gemini'
 import type { FlowDirection, NodeTextScale } from './types/canvas'
 
 const directionOptions: FlowDirection[] = ['TB', 'BT', 'LR', 'RL']
-const textScaleOptions: NodeTextScale[] = ['sm', 'md', 'lg', 'xl']
+const textScaleOptions: NodeTextScale[] = [12, 14, 16, 20, 24, 28, 32]
 
 function getDockForDirection(direction: FlowDirection) {
   switch (direction) {
@@ -65,11 +65,11 @@ function App() {
             id="node-text-scale"
             className="select-input"
             value={store.nodeTextScale}
-            onChange={(event) => store.setNodeTextScale(event.target.value as NodeTextScale)}
+            onChange={(event) => store.setNodeTextScale(Number(event.target.value) as NodeTextScale)}
           >
             {textScaleOptions.map((scale) => (
               <option key={scale} value={scale}>
-                {scale.toUpperCase()}
+                {scale}px
               </option>
             ))}
           </select>

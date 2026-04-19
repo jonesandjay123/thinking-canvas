@@ -140,7 +140,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
       <Handle type="source" position={sourcePosition} className="flow-node__handle" />
 
       <div className="flow-node__bubble" onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}>
-        <span className={`flow-node__title flow-node__title--${textScale}`}>{thoughtNode.title}</span>
+        <span className="flow-node__title" style={{ fontSize: `${textScale}px` }}>{thoughtNode.title}</span>
         <div className={`flow-node__actions flow-node__actions--${controlDock}`}>
           <button className="icon-button nodrag nopan" onClick={() => data.onAddChild(thoughtNode.id)} title="新增子節點">
             +

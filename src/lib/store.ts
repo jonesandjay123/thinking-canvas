@@ -40,13 +40,13 @@ function loadUiSettings(): {
         controlDock: parsed.controlDock ?? 'top',
         theme: parsed.theme ?? 'dark',
         flowDirection: parsed.flowDirection ?? 'TB',
-        nodeTextScale: parsed.nodeTextScale ?? 'md',
+        nodeTextScale: parsed.nodeTextScale ?? 20,
       }
     } catch {
       localStorage.removeItem(UI_STORAGE_KEY)
     }
   }
-  return { aiExpandCount: 3, controlDock: 'top', theme: 'dark', flowDirection: 'TB', nodeTextScale: 'md' }
+  return { aiExpandCount: 3, controlDock: 'top', theme: 'dark', flowDirection: 'TB', nodeTextScale: 20 }
 }
 
 export interface CanvasStore {
