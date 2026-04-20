@@ -126,7 +126,25 @@ users/{uid}/canvases/{canvasId}
 1. autosave UX 要不要再 polish
 2. Firestore rules 是否要補欄位型別與資料完整性檢查
 3. Gemini 是否要移到 Cloud Functions
-4. multiple canvases 要如何進場
+4. AI 展開時的 loading feedback 要如何更清楚、更有存在感
+5. Gemini prompt 是否要納入 sibling context，避免同層發想重複
+6. multiple canvases 要如何進場
+
+## 關於 sibling context 的當前判斷
+
+目前資料結構已經足夠支援這件事，不需要因為 sibling context 提前做複雜優化。
+
+原因：
+- `ThoughtNode` 已經有 `parentId`
+- parent node 已經有 `childIds`
+- 要找同層 sibling，只需要透過 parent 的 `childIds` 過濾當前 node 自己即可
+
+以 Jones 單人使用、節點量大概率不到上千的前提，這個查詢成本完全可以接受。
+目前更合理的做法是：
+
+- 先把 sibling titles / content 納入 prompt context
+- 先觀察生成品質是否明顯提升
+- 等真的出現資料量或效能問題，再決定是否需要額外索引
 
 ## 與 Firebase 的關係
 
