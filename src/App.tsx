@@ -150,7 +150,7 @@ function App() {
       setCloudBusy('load')
       const loaded = await store.loadFromCloud()
       if (!loaded) {
-        setStatusMessage('雲端尚未有這張 canvas 的存檔。')
+        setStatusMessage('雲端尚未有這張 canvas 的存檔，已保留目前本地畫布。')
         setStatusTone('neutral')
         return
       }

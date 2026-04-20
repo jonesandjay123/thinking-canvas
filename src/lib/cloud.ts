@@ -46,13 +46,17 @@ function isValidDocument(value: unknown): value is CanvasDocument {
   if (!isRecord(value) || !isRecord(value.canvas) || !isRecord(value.nodes)) return false
   const canvas = value.canvas
 
-  return (
-    typeof canvas.id === 'string' &&
-    typeof canvas.title === 'string' &&
-    typeof canvas.rootNodeId === 'string' &&
-    typeof canvas.createdAt === 'string' &&
-    typeof canvas.updatedAt === 'string'
-  )
+  if (
+    typeof canvas.id !== 'string' ||
+    typeof canvas.title !== 'string' ||
+    typeof canvas.rootNodeId !== 'string' ||
+    typeof canvas.createdAt !== 'string' ||
+    typeof canvas.updatedAt !== 'string'
+  ) {
+    return false
+  }
+
+  return canvas.rootNodeId in value.nodes && Object.keys(value.nodes).length > 0
 }
 
 function getCanvasDocRef(uid: string, canvasId: string) {

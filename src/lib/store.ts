@@ -14,6 +14,8 @@ import type {
 import { createNode, deleteNode, moveNode, updateNode } from './actions'
 import { loadFromCloud, saveToCloud } from './cloud'
 
+const fallbackDocument = sampleCanvas as CanvasDocument
+
 const STORAGE_KEY = 'thinking-canvas-document'
 const UI_STORAGE_KEY = 'thinking-canvas-ui'
 
@@ -74,7 +76,7 @@ function loadInitialDocument(): CanvasDocument {
       localStorage.removeItem(STORAGE_KEY)
     }
   }
-  return sampleCanvas as CanvasDocument
+  return fallbackDocument
 }
 
 function loadUiSettings(): UiSettings {
@@ -203,7 +205,8 @@ export function useCanvasStore(): CanvasStore {
         return false
       }
 
-      persist(cloudState.document)
+      const nextDocument = normalizeDocument(cloudState.document) ?? fallbackDocument
+      persist(nextDocument)
       setUi((current) => ({
         ...current,
         flowDirection: cloudState.presentation.flowDirection,
@@ -217,7 +220,7 @@ export function useCanvasStore(): CanvasStore {
     reset: () => {
       localStorage.removeItem(STORAGE_KEY)
       localStorage.removeItem(UI_STORAGE_KEY)
-      persist(sampleCanvas as CanvasDocument)
+      persist(fallbackDocument)
       setUi(defaultUiSettings)
     },
   }
