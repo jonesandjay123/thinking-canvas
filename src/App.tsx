@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
 import { geminiReady } from './lib/gemini'
@@ -183,6 +183,11 @@ function App() {
     }
   }
 
+  const handleFlowStatus = useCallback((message: string, tone: 'neutral' | 'success' | 'error') => {
+    setStatusMessage(message)
+    setStatusTone(tone)
+  }, [])
+
   return (
     <div className={`app-shell theme-${store.theme}`}>
       <aside className="sidebar">
@@ -344,10 +349,7 @@ function App() {
           geminiEnabled={geminiReady()}
           canEdit={canEdit}
           onDocumentChange={store.setDocument}
-          onStatus={(message, tone) => {
-            setStatusMessage(message)
-            setStatusTone(tone)
-          }}
+          onStatus={handleFlowStatus}
         />
       </main>
     </div>

@@ -535,6 +535,8 @@ function FlowCanvasInner({
     [axis.source, axis.target, canEdit, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, nodeShape, nodeSize, nodeTextScale, theme],
   )
 
+  const syncSignature = `${document.canvas.id}:${document.canvas.updatedAt}:${flowDirection}:${canEdit}:${generatingNodeId ?? 'idle'}:${nodeShape}:${nodeSize}:${nodeTextScale}:${controlDock}:${theme}`
+
   const derivedNodes = useMemo(() => buildNodes(document), [buildNodes, document])
   const derivedEdges = useMemo(() => buildEdges(document), [buildEdges, document])
 
@@ -552,9 +554,10 @@ function FlowCanvasInner({
         edgeCount: derivedEdges.length,
         flowDirection,
         canEdit,
+        syncSignature,
       })
     }
-  }, [document.canvas.id, document.canvas.updatedAt, derivedNodes, derivedEdges, setNodes, setEdges, flowDirection, canEdit])
+  }, [syncSignature, derivedNodes, derivedEdges, setNodes, setEdges])
 
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent | React.TouchEvent, draggedNode: Node) => {
