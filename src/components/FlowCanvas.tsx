@@ -535,25 +535,26 @@ function FlowCanvasInner({
     [axis.source, axis.target, canEdit, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, nodeShape, nodeSize, nodeTextScale, theme],
   )
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))
-  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(document))
+  const derivedNodes = useMemo(() => buildNodes(document), [buildNodes, document])
+  const derivedEdges = useMemo(() => buildEdges(document), [buildEdges, document])
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(derivedNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(derivedEdges)
 
   useEffect(() => {
-    const nextNodes = buildNodes(document)
-    const nextEdges = buildEdges(document)
-    setNodes(nextNodes)
-    setEdges(nextEdges)
+    setNodes(derivedNodes)
+    setEdges(derivedEdges)
 
     if (import.meta.env.DEV) {
       console.debug('[FlowCanvas sync]', {
         canvasId: document.canvas.id,
-        nodeCount: nextNodes.length,
-        edgeCount: nextEdges.length,
+        nodeCount: derivedNodes.length,
+        edgeCount: derivedEdges.length,
         flowDirection,
         canEdit,
       })
     }
-  }, [document, buildNodes, buildEdges, setNodes, setEdges, flowDirection, canEdit])
+  }, [document.canvas.id, document.canvas.updatedAt, derivedNodes, derivedEdges, setNodes, setEdges, flowDirection, canEdit])
 
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent | React.TouchEvent, draggedNode: Node) => {
