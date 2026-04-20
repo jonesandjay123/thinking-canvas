@@ -204,6 +204,28 @@ button {
   margin: 0;
 }
 
+.auth-mode {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.theme-dark .auth-mode.viewer {
+  color: #d7c28b;
+}
+
+.theme-light .auth-mode.viewer {
+  color: #8a5a00;
+}
+
+.theme-dark .auth-mode.owner {
+  color: #8ce0b1;
+}
+
+.theme-light .auth-mode.owner {
+  color: #1c7a47;
+}
+
 .stack-actions {
   display: grid;
   gap: 8px;

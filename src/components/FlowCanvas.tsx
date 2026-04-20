@@ -37,6 +37,7 @@ type FlowNodeData = {
   shape: NodeShape
   size: NodeSize
   theme: ThemeMode
+  canEdit: boolean
   geminiEnabled: boolean
   isGenerating: boolean
   onAddChild: (id: string) => void
@@ -55,6 +56,7 @@ interface FlowCanvasProps {
   nodeShape: NodeShape
   nodeSize: NodeSize
   theme: ThemeMode
+  canEdit: boolean
   geminiEnabled: boolean
   onDocumentChange: (document: CanvasDocument) => void
   onStatus: (message: string, tone: 'neutral' | 'success' | 'error') => void
@@ -156,7 +158,7 @@ function getBubbleStyle(shape: NodeShape, size: NodeSize) {
 }
 
 function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
-  const { thoughtNode, controlDock, sourcePosition, targetPosition, textScale, shape, size, theme, geminiEnabled, isGenerating } = data
+  const { thoughtNode, controlDock, sourcePosition, targetPosition, textScale, shape, size, theme, canEdit, geminiEnabled, isGenerating } = data
   const [draftTitle, setDraftTitle] = useState(thoughtNode.title)
   const [draftContent, setDraftContent] = useState(thoughtNode.content)
   const debounceRef = useRef<number | null>(null)
@@ -178,6 +180,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
   }, [])
 
   const scheduleCommit = (patch: Partial<ThoughtNode>) => {
+    if (!canEdit) return
     if (debounceRef.current) {
       window.clearTimeout(debounceRef.current)
     }
@@ -187,6 +190,8 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
   }
 
   const commitDrafts = () => {
+    if (!canEdit) return
+
     const patch: Partial<ThoughtNode> = {}
     if (draftTitle !== thoughtNode.title) patch.title = draftTitle
     if (draftContent !== thoughtNode.content) patch.content = draftContent
@@ -205,19 +210,19 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
       <div className={`flow-node__bubble flow-node__bubble--${shape}`} style={bubbleStyle} onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}>
         <span className="flow-node__title" style={{ fontSize: `${textScale}px` }}>{draftTitle}</span>
         <div className={`flow-node__actions flow-node__actions--${controlDock}`}>
-          <button className="icon-button nodrag nopan" onClick={() => data.onAddChild(thoughtNode.id)} title="新增子節點">
+          <button className="icon-button nodrag nopan" onClick={() => data.onAddChild(thoughtNode.id)} title="新增子節點" disabled={!canEdit}>
             +
           </button>
           <button
             className="icon-button secondary nodrag nopan"
             onClick={() => data.onGenerate(thoughtNode.id)}
-            disabled={!geminiEnabled || isGenerating}
+            disabled={!canEdit || !geminiEnabled || isGenerating}
             title={geminiEnabled ? '使用 Gemini 產生子節點建議' : '請先設定 VITE_GEMINI_API_KEY'}
           >
             {isGenerating ? '…' : '✨'}
           </button>
           {thoughtNode.parentId && (
-            <button className="icon-button danger nodrag nopan" onClick={() => data.onDelete(thoughtNode.id)} title="刪除節點">
+            <button className="icon-button danger nodrag nopan" onClick={() => data.onDelete(thoughtNode.id)} title="刪除節點" disabled={!canEdit}>
               ×
             </button>
           )}
@@ -241,6 +246,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
               scheduleCommit({ title: next, content: draftContent })
             }}
             onBlur={commitDrafts}
+            disabled={!canEdit}
           />
           <textarea
             className="flow-node__textarea"
@@ -252,6 +258,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
               scheduleCommit({ title: draftTitle, content: next })
             }}
             onBlur={commitDrafts}
+            disabled={!canEdit}
           />
         </div>
       )}
@@ -288,6 +295,7 @@ function FlowCanvasInner({
   nodeShape,
   nodeSize,
   theme,
+  canEdit,
   geminiEnabled,
   onDocumentChange,
   onStatus,
@@ -309,6 +317,7 @@ function FlowCanvasInner({
 
   const handleAddChild = useCallback(
     (parentId: string) => {
+      if (!canEdit) return
       const parent = document.nodes[parentId]
       if (!parent) return
 
@@ -346,11 +355,12 @@ function FlowCanvasInner({
         },
       })
     },
-    [axis.x, axis.y, document, persistDocument],
+    [axis.x, axis.y, canEdit, document, persistDocument],
   )
 
   const handleDelete = useCallback(
     (nodeId: string) => {
+      if (!canEdit) return
       const node = document.nodes[nodeId]
       if (!node || !node.parentId) return
 
@@ -371,11 +381,12 @@ function FlowCanvasInner({
 
       persistDocument({ ...document, nodes: nextNodes })
     },
-    [document, persistDocument],
+    [canEdit, document, persistDocument],
   )
 
   const handleToggleExpand = useCallback(
     (nodeId: string) => {
+      if (!canEdit) return
       const node = document.nodes[nodeId]
       if (!node) return
       persistDocument({
@@ -390,11 +401,12 @@ function FlowCanvasInner({
         },
       })
     },
-    [document, persistDocument],
+    [canEdit, document, persistDocument],
   )
 
   const handleCommit = useCallback(
     (nodeId: string, patch: Partial<ThoughtNode>) => {
+      if (!canEdit) return
       const node = document.nodes[nodeId]
       if (!node) return
       persistDocument({
@@ -409,7 +421,7 @@ function FlowCanvasInner({
         },
       })
     },
-    [document, persistDocument],
+    [canEdit, document, persistDocument],
   )
 
   const buildEdges = useCallback(
@@ -418,6 +430,7 @@ function FlowCanvasInner({
   )
 
   useEffect(() => {
+    if (!canEdit) return
     if (lastFlowDirectionRef.current === flowDirection) return
     lastFlowDirectionRef.current = flowDirection
 
@@ -425,10 +438,15 @@ function FlowCanvasInner({
     if (JSON.stringify(relaid.nodes) !== JSON.stringify(document.nodes)) {
       persistDocument(relaid)
     }
-  }, [document, flowDirection, persistDocument])
+  }, [canEdit, document, flowDirection, persistDocument])
 
   const handleGenerate = useCallback(
     async (nodeId: string) => {
+      if (!canEdit) {
+        onStatus('View only mode', 'neutral')
+        return
+      }
+
       const node = document.nodes[nodeId]
       if (!node) return
 
@@ -487,7 +505,7 @@ function FlowCanvasInner({
         setGeneratingNodeId(null)
       }
     },
-    [aiExpandCount, axis.x, axis.y, document, flowDirection, onStatus, persistDocument],
+    [aiExpandCount, axis.x, axis.y, canEdit, document, flowDirection, onStatus, persistDocument],
   )
 
   const buildNodes = useCallback(
@@ -507,6 +525,7 @@ function FlowCanvasInner({
           shape: nodeShape,
           size: nodeSize,
           theme,
+          canEdit,
           geminiEnabled,
           isGenerating: generatingNodeId === node.id,
           onAddChild: handleAddChild,
@@ -516,7 +535,7 @@ function FlowCanvasInner({
           onCommit: handleCommit,
         },
       })),
-    [axis.source, axis.target, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, nodeShape, nodeSize, nodeTextScale, theme],
+    [axis.source, axis.target, canEdit, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, nodeShape, nodeSize, nodeTextScale, theme],
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(document))
@@ -529,6 +548,7 @@ function FlowCanvasInner({
 
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent | React.TouchEvent, draggedNode: Node) => {
+      if (!canEdit) return
       const currentNode = document.nodes[draggedNode.id]
       if (!currentNode) return
 
@@ -544,11 +564,12 @@ function FlowCanvasInner({
         },
       })
     },
-    [document, persistDocument],
+    [canEdit, document, persistDocument],
   )
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (!canEdit) return
       if (!connection.source || !connection.target) return
       const child = document.nodes[connection.target]
       const parent = document.nodes[connection.source]
@@ -580,7 +601,7 @@ function FlowCanvasInner({
         },
       })
     },
-    [document, persistDocument],
+    [canEdit, document, persistDocument],
   )
 
   return (
@@ -592,6 +613,9 @@ function FlowCanvasInner({
         onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}
         onConnect={onConnect}
+        nodesDraggable={canEdit}
+        nodesConnectable={canEdit}
+        elementsSelectable
         fitView
         nodeTypes={nodeTypes}
         colorMode={theme === 'dark' ? 'dark' : 'light'}
@@ -603,7 +627,7 @@ function FlowCanvasInner({
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
         <Controls showInteractive={false} position="bottom-right" />
         <Panel position="top-right" className="flow-hint-panel">
-          Double click a node to edit, drag to reposition, connect handles to re-parent.
+          {canEdit ? 'Double click a node to edit, drag to reposition, connect handles to re-parent.' : 'View only mode'}
         </Panel>
       </ReactFlow>
     </div>

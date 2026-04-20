@@ -6,6 +6,8 @@ import { createSaveFileV1, parseSaveFileV1 } from './lib/save-file'
 import { logOut, signInWithGoogle, subscribeToAuthState } from './lib/auth'
 import type { FlowDirection, NodeShape, NodeSize, NodeTextScale } from './types/canvas'
 
+const OWNER_EMAIL = 'jonesandjay123@gmail.com'
+
 const directionOptions: FlowDirection[] = ['TB', 'BT', 'LR', 'RL']
 const textScaleOptions: NodeTextScale[] = [12, 14, 16, 20, 24, 28, 32]
 const shapeOptions: { value: NodeShape; label: string }[] = [
@@ -51,6 +53,8 @@ function App() {
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'neutral' | 'success' | 'error'>('neutral')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const isOwner = store.user?.email === OWNER_EMAIL
+  const canEdit = !store.authLoading && isOwner
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', store.theme)
@@ -142,6 +146,7 @@ function App() {
           ) : store.isLoggedIn ? (
             <div className="auth-stack">
               <p className="sidebar-copy auth-copy">已登入：{store.user?.email ?? 'unknown user'}</p>
+              <p className={`auth-mode ${canEdit ? 'owner' : 'viewer'}`}>{canEdit ? 'Owner mode' : 'View only mode'}</p>
               <button className="secondary" onClick={handleLogout}>
                 Logout
               </button>
@@ -149,6 +154,7 @@ function App() {
           ) : (
             <div className="auth-stack">
               <p className="sidebar-copy auth-copy">目前未登入，先接好 Google Auth 流程。</p>
+              <p className="auth-mode viewer">View only mode</p>
               <button onClick={handleLogin}>Login with Google</button>
             </div>
           )}
@@ -156,6 +162,7 @@ function App() {
 
         <div className="sidebar-panel">
           <h2>畫布控制</h2>
+          {!canEdit && <p className="sidebar-copy auth-copy">目前是唯讀模式，只有 owner 可以新增、刪除、拖曳或編輯節點。</p>}
           <label className="field-label" htmlFor="ai-expand-count">
             AI 展開數量
           </label>
@@ -164,6 +171,7 @@ function App() {
             className="select-input"
             value={store.aiExpandCount}
             onChange={(event) => store.setAiExpandCount(Number(event.target.value))}
+            disabled={!canEdit}
           >
             {[1, 2, 3, 4, 5].map((count) => (
               <option key={count} value={count}>
@@ -180,6 +188,7 @@ function App() {
             className="select-input"
             value={store.nodeShape}
             onChange={(event) => store.setNodeShape(event.target.value as NodeShape)}
+            disabled={!canEdit}
           >
             {shapeOptions.map((shape) => (
               <option key={shape.value} value={shape.value}>
@@ -196,6 +205,7 @@ function App() {
             className="select-input"
             value={store.nodeSize}
             onChange={(event) => store.setNodeSize(Number(event.target.value) as NodeSize)}
+            disabled={!canEdit}
           >
             {sizeOptions.map((size) => (
               <option key={size} value={size}>
@@ -212,6 +222,7 @@ function App() {
             className="select-input"
             value={store.nodeTextScale}
             onChange={(event) => store.setNodeTextScale(Number(event.target.value) as NodeTextScale)}
+            disabled={!canEdit}
           >
             {textScaleOptions.map((scale) => (
               <option key={scale} value={scale}>
@@ -229,9 +240,11 @@ function App() {
                 key={direction}
                 className={`secondary direction-button ${store.flowDirection === direction ? 'active' : ''}`}
                 onClick={() => {
+                  if (!canEdit) return
                   store.setFlowDirection(direction)
                   store.setControlDock(getDockForDirection(direction))
                 }}
+                disabled={!canEdit}
               >
                 {direction}
               </button>
@@ -242,13 +255,13 @@ function App() {
             <button className="secondary" onClick={handleExport}>
               匯出 JSON
             </button>
-            <button className="secondary" onClick={handleImportClick}>
+            <button className="secondary" onClick={handleImportClick} disabled={!canEdit}>
               匯入 JSON
             </button>
             <input ref={fileInputRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={handleImportFile} />
           </div>
 
-          <button className="secondary" onClick={() => store.setTheme(store.theme === 'dark' ? 'light' : 'dark')}>
+          <button className="secondary" onClick={() => store.setTheme(store.theme === 'dark' ? 'light' : 'dark')} disabled={!canEdit}>
             {store.theme === 'dark' ? '切換到 Light' : '切換到 Dark'}
           </button>
         </div>
@@ -267,6 +280,7 @@ function App() {
           nodeSize={store.nodeSize}
           theme={store.theme}
           geminiEnabled={geminiReady()}
+          canEdit={canEdit}
           onDocumentChange={store.setDocument}
           onStatus={(message, tone) => {
             setStatusMessage(message)
