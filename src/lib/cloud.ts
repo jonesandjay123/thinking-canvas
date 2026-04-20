@@ -22,6 +22,8 @@ type CloudPresentation = {
 }
 
 type CloudCanvasRecord = {
+  ownerUid?: string
+  title?: string
   document: CanvasDocument
   presentation: CloudPresentation
   updatedAt?: unknown
@@ -71,11 +73,17 @@ export async function saveToCloud(input: {
 }) {
   const ref = getCanvasDocRef(input.uid, input.canvasId)
 
-  await setDoc(ref, {
-    document: input.document,
-    presentation: input.presentation,
-    updatedAt: serverTimestamp(),
-  })
+  await setDoc(
+    ref,
+    {
+      ownerUid: input.uid,
+      title: input.document.canvas.title,
+      document: input.document,
+      presentation: input.presentation,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  )
 }
 
 export async function loadFromCloud(input: { uid: string; canvasId: string }): Promise<CloudCanvasRecord | null> {
@@ -93,6 +101,8 @@ export async function loadFromCloud(input: { uid: string; canvasId: string }): P
   }
 
   return {
+    ownerUid: typeof data.ownerUid === 'string' ? data.ownerUid : undefined,
+    title: typeof data.title === 'string' ? data.title : undefined,
     document: data.document,
     presentation: data.presentation,
     updatedAt: data.updatedAt,

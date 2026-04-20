@@ -1,15 +1,16 @@
 # Storage Architecture
 
-## 為什麼現在要先定這份
+## 為什麼現在要更新這份
 
-Thinking Canvas 已經不是單純的互動畫布 prototype 了。
-它開始碰到真正的「保存」問題，也就是：
+Thinking Canvas 已經不再只是「本地互動畫布 prototype」。
+它現在同時擁有：
 
-- 內容要怎麼保存
-- 畫面呈現要怎麼保存
-- 本地暫存、正式存檔、未來雲端資料要怎麼切開
+- 本地工作現場延續
+- 正式匯出 / 匯入格式
+- 最小 Firestore 雲端 persistence
+- 薄層 autosave
 
-目前專案已經用 `localStorage` 做本地 persistence，但這不應直接等同於最終的存檔格式。
+所以這份文件現在不只是在講 localStorage，也是在定義 local 與 cloud 的責任邊界。
 
 ## 三層模型
 
@@ -22,6 +23,7 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 - 哪個 input 正在 focus
 - Gemini loading 狀態
 - React Flow viewport 過渡狀態
+- autosave timer / suppress flag
 
 原則：
 - 不進 export/import 檔案
@@ -35,25 +37,41 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 
 現況：
 - `thinking-canvas-document` 儲存畫布 document
-- `thinking-canvas-ui` 儲存控制面板相關偏好
+- `thinking-canvas-ui` 儲存主要 UI / presentation 設定
 
 原則：
 - 可接近 app runtime 結構
 - 重點是方便單機延續工作
 - 不應直接當成可分享、可版本化的正式 save file
 
-### 3. Portable save format
-這是未來 export/import 要用的正式存檔格式。
+### 3. Cloud persistence
+這是「跨裝置、跨 session 仍能保留畫布」的層。
+
+目前由 Firestore 承擔最小版本。
+
+路徑：
+
+```text
+users/{uid}/canvases/{canvasId}
+```
+
+目前欄位：
+
+- `ownerUid`
+- `title`
+- `document`
+- `presentation`
+- `updatedAt`
 
 原則：
-- 必須 versioned
-- 必須可驗證
-- 必須可 migration
-- 不應被目前 React / localStorage 內部結構綁死
+- 先追求單人 owner-only 可用
+- 不先做多人協作
+- 不先拆 node subcollection
+- 不先做 version history
 
 ## 不只 document / ui，而是 document / presentation / user preference
 
-目前最自然的切法不是單純 `document` 與 `ui` 二分，而是至少先在概念上區分：
+目前最自然的切法不是單純 `document` 與 `ui` 二分，而是至少在概念上區分：
 
 ### document
 真正的思考內容資產。
@@ -63,7 +81,7 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 - title
 - rootNodeId
 - nodes
-- parent/child 關係
+- parent / child 關係
 - links
 - tags
 - content
@@ -79,26 +97,23 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 - nodeSize
 - nodeTextScale
 
-這些欄位不完全只是個人 UI 偏好，它們也會影響作品被觀看時的外觀。
-
 ### user preference
 更偏向使用者個人環境偏好。
 
-但因為這個專案目前只服務 Jones 一人，所以暫時不需要特地把這層產品化。
-目前保留成概念上的區分即可，未來真的有痛點再拆：
+目前仍然保留為較弱的概念層，未來若真的有需求再拆：
 - theme
-- default zoom behavior
+- controlDock
 - panel 開合習慣
 
 ## 目前 localStorage 現況
 
 目前除了保存之外，也已經補上最小 recovery：
+
 - 載入時先 normalize
 - document 結構不合法時清除該 key 並 fallback 到 sample canvas
 - `reset()` 會同時清除 document 與 UI settings
 
-
-當前實作是：
+目前實作為：
 
 - `thinking-canvas-document`
   - `CanvasDocument` JSON 字串
@@ -111,11 +126,29 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
   - theme
   - controlDock
 
-這對本地 persistence 很夠用，也讓今天的開發能持續推進。
+## 目前 autosave 的責任邊界
+
+autosave 不是新的 storage layer，它只是：
+
+> **把本地穩定狀態，延遲同步到雲端。**
+
+目前行為：
+
+- localStorage 仍然即時保存
+- Firestore autosave debounce 1500ms
+- 僅對 owner + 已登入啟用
+- 手動 Save to Cloud 仍保留
+- Load from Cloud 後 suppress 下一次 autosave
+
+這代表：
+
+- local 承擔即時草稿責任
+- cloud 承擔跨裝置 persistence 責任
+- autosave 承擔「不要一直要人手動按 save」的協調責任
 
 ## 未來建議的 save-file v1 方向
 
-建議之後的正式匯出格式長這樣：
+正式匯出格式仍維持：
 
 ```json
 {
@@ -127,95 +160,49 @@ Thinking Canvas 已經不是單純的互動畫布 prototype 了。
 }
 ```
 
-### 最低限度欄位
-
-#### top-level
-- `app`
-- `version`
-- `exportedAt`
-- `document`
-- `presentation`
-
-#### document
-- `canvas`
-- `nodes`
-
-#### presentation
-- `flowDirection`
-- `nodeShape`
-- `nodeSize`
-- `nodeTextScale`
+這一層仍應獨立於 localStorage 與 Firestore 內部實作。
 
 ## 哪些不該進正式 save file
 
 先不要放：
+
 - hover node id
 - selected node id
 - drag in progress 狀態
 - loading 狀態
+- autosave timer / autosave state
 - 暫時性 viewport transition
 - Gemini 暫存結果
-- API key 相關任何資訊
-- 畫面上短期可還原但非核心的暫態 UI
+- API key 相關資訊
 
 ## Runtime schema 與 export schema 不必相同
 
-這點很重要。
+這點仍然重要。
 
-目前 app runtime 適合用：
+目前 app runtime 使用：
 - `nodes: Record<string, ThoughtNode>`
 
-未來 export schema 不一定非得完全相同。
-它可以維持相同結構，也可以轉成更適合跨系統交換與驗證的格式。
-
-關鍵不是「兩者一樣」，而是：
+未來 export schema 不一定必須永遠長得一樣。
+關鍵是：
 - 有明確 conversion
 - 有明確 version
-- 有 migration 策略
-
-## Migration 要想兩種
-
-概念上可以分成兩種，但這個專案目前是 Jones 單人使用，不是多人 SaaS。
-所以現階段不需要做重型 migration framework。
-
-### 1. localStorage migration
-目前做法以 normalize + invalid fallback 為主，夠用就好。
-如果未來欄位有小變動，優先考慮一次性轉換或直接由 agent / LLM 協助轉換。
-
-### 2. save-file migration
-目前保留 version 與錯誤提示即可。
-未來若 schema 有明顯變動，再做小型、客製化的轉換即可，不必預先做複雜升級鏈。
-
-## 建議的近期順序
-
-### 本地段落先完成
-1. 穩定 localStorage persistence
-2. 文件寫清楚三層模型
-3. 定 save file spec v1 草案
-
-### 接著再做
-4. 補更完整的 migration 設計
-5. 決定是否納入 user preference 存檔層
-6. 決定 Firestore 映射草案
-
-### 最後才接
-7. Firebase / Firestore 實作
+- 有 migration thinking
 
 ## 與 Firestore 的未來對接
 
-未來不建議把所有資料原封不動塞成單一 blob 而不加思考。
+現在 Firestore 已經先採「整包 document 存一筆」的策略，這對目前單人專案是正確的。
 
-建議方向：
-- document 作為主要雲端內容資產
-- presentation 視需求跟著 canvas 走
-- user preference 視需求獨立成 user scope
+未來何時再拆，需要真的出現以下需求才考慮：
 
-等本地段落穩定後，再決定 Firestore 要：
-- 先整包 document 存一筆
-- 或切成 canvas metadata + node collection
+- 單張 canvas 過大
+- 需要多人協作
+- 需要 node-level history
+- 需要局部同步
+
+在那之前，整包 document + presentation 是最穩的作法。
 
 ## 目前結論
 
-今天的重點不是一次把雲端做完，而是先把本地 persistence 與 save-format thinking 定清楚。
+今天的 storage 架構可以收斂成一句：
 
-做到這個段落後，Thinking Canvas 才算真的跨過「只是畫布 UI」的分水嶺，開始變成一個有保存觀念的思考系統。
+> **local 即時，cloud 延遲，format 獨立，先穩再擴。**

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
 import { geminiReady } from './lib/gemini'
@@ -48,18 +48,32 @@ function formatTimestampFilename(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
 }
 
+type AutosaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
+
 function App() {
   const store = useCanvasStore()
   const setAuthState = useCanvasStore((state) => state.setAuthState)
+  const document = useCanvasStore((state) => state.document)
+  const flowDirection = useCanvasStore((state) => state.flowDirection)
+  const nodeShape = useCanvasStore((state) => state.nodeShape)
+  const nodeSize = useCanvasStore((state) => state.nodeSize)
+  const nodeTextScale = useCanvasStore((state) => state.nodeTextScale)
+  const user = useCanvasStore((state) => state.user)
+  const saveToCloud = useCanvasStore((state) => state.saveToCloud)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'neutral' | 'success' | 'error'>('neutral')
   const [cloudBusy, setCloudBusy] = useState<'save' | 'load' | null>(null)
+  const [autosaveState, setAutosaveState] = useState<AutosaveState>('idle')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const autosaveTimerRef = useRef<number | null>(null)
+  const lastSavedSignatureRef = useRef<string | null>(null)
+  const suppressNextAutosaveRef = useRef(false)
+  const latestSaveSeqRef = useRef(0)
   const isOwner = store.user?.email === OWNER_EMAIL
   const canEdit = !store.authLoading && isOwner
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', store.theme)
+    globalThis.document.documentElement.setAttribute('data-theme', store.theme)
   }, [store.theme])
 
   useEffect(() => {
@@ -76,6 +90,67 @@ function App() {
 
     return unsubscribe
   }, [setAuthState])
+
+  const autosaveSignature = useMemo(
+    () =>
+      JSON.stringify({
+        document,
+        presentation: {
+          flowDirection,
+          nodeShape,
+          nodeSize,
+          nodeTextScale,
+        },
+        uid: user?.uid ?? null,
+        canEdit,
+      }),
+    [document, flowDirection, nodeShape, nodeSize, nodeTextScale, user?.uid, canEdit],
+  )
+
+  useEffect(() => {
+    if (!canEdit || !user || cloudBusy === 'load') {
+      return
+    }
+
+    if (suppressNextAutosaveRef.current) {
+      suppressNextAutosaveRef.current = false
+      lastSavedSignatureRef.current = autosaveSignature
+      setAutosaveState('idle')
+      return
+    }
+
+    if (autosaveSignature === lastSavedSignatureRef.current) {
+      return
+    }
+
+    setAutosaveState('dirty')
+
+    if (autosaveTimerRef.current) {
+      window.clearTimeout(autosaveTimerRef.current)
+    }
+
+    autosaveTimerRef.current = window.setTimeout(async () => {
+      const seq = ++latestSaveSeqRef.current
+      setAutosaveState('saving')
+
+      try {
+        await saveToCloud()
+        if (seq !== latestSaveSeqRef.current) return
+
+        lastSavedSignatureRef.current = autosaveSignature
+        setAutosaveState('saved')
+      } catch {
+        if (seq !== latestSaveSeqRef.current) return
+        setAutosaveState('error')
+      }
+    }, 1500)
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        window.clearTimeout(autosaveTimerRef.current)
+      }
+    }
+  }, [autosaveSignature, canEdit, user, cloudBusy, saveToCloud])
 
   const handleExport = () => {
     const saveFile = createSaveFileV1({
@@ -149,6 +224,8 @@ function App() {
         })
       }
       await store.saveToCloud()
+      lastSavedSignatureRef.current = autosaveSignature
+      setAutosaveState('saved')
       setStatusMessage('已儲存到 Firestore。')
       setStatusTone('success')
     } catch (error) {
@@ -170,10 +247,13 @@ function App() {
       }
       const loaded = await store.loadFromCloud()
       if (!loaded) {
+        setAutosaveState('idle')
         setStatusMessage('雲端尚未有這張 canvas 的存檔，已保留目前本地畫布。')
         setStatusTone('neutral')
         return
       }
+      suppressNextAutosaveRef.current = true
+      setAutosaveState('idle')
       setStatusMessage('已從 Firestore 載入，並覆蓋本地狀態。')
       setStatusTone('success')
     } catch (error) {
@@ -221,6 +301,13 @@ function App() {
 
         <div className="sidebar-panel">
           <h2>畫布控制</h2>
+          <p className={`autosave-state autosave-state--${autosaveState}`}>
+            {autosaveState === 'dirty' && 'Unsaved cloud changes'}
+            {autosaveState === 'saving' && 'Saving...'}
+            {autosaveState === 'saved' && 'Saved'}
+            {autosaveState === 'error' && 'Autosave failed'}
+            {autosaveState === 'idle' && 'Cloud autosave idle'}
+          </p>
           {!canEdit && <p className="sidebar-copy auth-copy">目前是唯讀模式，只有 owner 可以新增、刪除、拖曳或編輯節點。</p>}
           <label className="field-label" htmlFor="ai-expand-count">
             AI 展開數量

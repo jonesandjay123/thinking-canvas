@@ -1,150 +1,189 @@
 # Thinking Canvas
 
-一個屬於 Jones 的可視化思考工作台。
+Thinking Canvas 是一個屬於 Jones 的可視化思考工作台。
 
-Thinking Canvas 是一個以 repo 為基礎、可由 agent 協作操作的想法空間。它已經從最初的心智圖式 prototype，進入一個更明確的方向：不只要能互動，還要能保存、搬移、累積，慢慢長成真正的思考系統。
+它不是單純的心智圖工具，也不是只有聊天式互動的 AI app。現在這個 repo 已經進入一個更清楚的階段：
 
-## 目前專案狀態
+> *用 React Flow 建立一個可操作、可保存、可雲端同步、可由 Jarvis 協作處理的個人思考系統。*
 
-這個 repo 現在已經有一個可操作、可本地存檔的版本基底，包含：
+## 目前做到哪裡
 
-- React + Vite + TypeScript app
-- React Flow 畫布
+截至目前，這個專案已經具備一個可用而且開始穩定的 v0 基底：
+
+- React + Vite + TypeScript 前端
+- React Flow 畫布主體
 - 節點新增、編輯、刪除、拖曳
-- 本地 `localStorage` persistence
-- 控制面板（方位流向、節點形狀、大小、文字大小）
-- Gemini prototype 節點展開
-- save-file v1 spec 文件
-- 最小 JSON 匯出 / 匯入
+- localStorage workspace persistence
+- save-file v1 JSON 匯出 / 匯入
 - import validation 與 local recovery
+- Google Auth 登入
+- owner-only 前端編輯權限
+- 最小 Firestore 雲端讀寫
+- 手動 `Save to Cloud` / `Load from Cloud`
+- 薄層 autosave（local 即時，cloud debounce 同步）
+- Gemini prototype 節點展開
 
-所以目前最重要的目標，不再只是「把畫布 render 出來」，而是：
+現在這個版本已經不是 demo，而是一個可以真的開始使用、並且能逐步演化的工作台。
 
-> *先把本地 persistence / save-format thinking 這一段收斂完整，再往 export/import 與 Firebase 前進。*
+## 專案定位
 
-## 這個專案為什麼存在
+Thinking Canvas 想解的不是「怎麼做一個很炫的 AI 畫布」，而是：
 
-這個專案其實是三條已經被驗證過的路線，慢慢匯流出來的結果：
+- 想法怎麼被看見
+- 想法怎麼被結構化
+- 想法怎麼被保存
+- 想法怎麼被 Jones 與 Jarvis 協作操作
+- 想法怎麼跨 session、跨裝置延續
 
-1. *IdeaCanvas* 證明了一個很好的互動模式，也就是「可編輯的視覺化節點 + AI 協助局部發散」。
-2. *trip-planner* 證明了一個很重要的架構模式，也就是 Jarvis 不只是聊天，而是真的可以透過結構化資料直接操作內容。
-3. *thinking_with_ai* 證明了 Jones 的真實工作習慣，也就是會持續把想法寫進 repo，長期累積、重組、複利成長。
+這也是為什麼目前架構一直在刻意維持這幾個原則：
 
-Thinking Canvas 想做的，就是把這三件事接起來，變成一個真正可長期使用的系統：
+- *人主導，AI 增強*
+- *tree-first，graph-ready*
+- *資料層由 app 掌握，不被 React Flow 綁死*
+- *local 與 cloud 分層，不把所有責任塞給單一 persistence*
 
-- 可視化
-- 可編輯
-- 可結構化保存
-- 可由 Jarvis 協作操作
-- 適合長期累積與重組
+## 目前的儲存模型
 
-## 當前明確方向
+目前專案實際上有三層保存概念：
 
-### 1. 前端主體已成立
-目前核心技術方向已經確立：
-- React + Vite
-- TypeScript
-- React Flow
-- 本地 sample data + localStorage persistence
+### 1. Runtime state
+互動中的暫態，例如 hover、dragging、loading、focus。
 
-### 2. localStorage 是 workspace persistence，不是最終存檔格式
-目前 app 已經使用 browser `localStorage` 保存工作現場，這很適合本地延續使用。
+### 2. Workspace persistence
+目前由 browser `localStorage` 承擔。
 
-但這不應直接等同於未來正式的匯出匯入格式。
+- `thinking-canvas-document`
+- `thinking-canvas-ui`
 
-目前建議分三層思考：
-- runtime state
-- workspace persistence
-- portable save format
+這一層的目的，是讓同一台裝置重新打開後仍保有工作現場。
 
-詳見：`docs/storage-architecture.md`
+### 3. Cloud persistence
+目前由 Firestore 承擔最小版本。
 
-正式的匯出匯入格式草案見：`docs/save-file-spec-v1.md`
+路徑：
 
-### 3. document 與 presentation 要分開思考
-Thinking Canvas 的資料目前至少應分成：
-- `document`: 真正的思考內容
-- `presentation`: 這張圖如何被呈現
+```text
+users/{uid}/canvases/{canvasId}
+```
 
-至於 `user preference`，因為這個專案目前是 Jones 單人使用，不是多人 SaaS，所以暫時不需要為了理論完整性額外拆出一層。真的有需要時再補就好。
+目前雲端 document 會保存：
 
-### 4. Firebase 仍然重要，但不是這一刻唯一優先
-Firebase / Firestore 仍然是合理的下一段，但現階段更重要的是先把：
-- 本地 persistence
-- save-file spec thinking
-- import/export 概念邊界
+- `ownerUid`
+- `title`
+- `document`
+- `presentation`
+- `updatedAt`
 
-定清楚，避免之後雲端資料結構重來。
+### 4. Portable save format
+匯出 / 匯入使用 save-file v1。
 
-## 產品工作定義
+詳細見：`docs/save-file-spec-v1.md`
 
-Thinking Canvas 不只是筆記 app，也不只是心智圖。
+## 目前的雲端行為
 
-它更像是一個屬於 Jones 的思考工作台，在這裡想法可以被：
-- 建立
-- 展開
-- 重組
-- 連接
-- 保存
-- 由 Jones 與 Jarvis 協作操作
+### Auth 與編輯權限
+目前採用 Google Auth，並且先做 owner-only 前端編輯保護。
 
-## 當前本地里程碑
+- 未登入：read-only
+- 已登入但非 owner：read-only
+- owner：可編輯
 
-如果要說「目前這段做到一個可以先停的本地段落」，目前已經包含：
+這一層是 UI / frontend gating。
+真正資料層保護由 Firestore rules 處理。
 
-- 本地畫布可正常操作
-- 本地 persistence 穩定
-- 文件清楚描述 storage architecture
-- save-file v1 的方向被定義清楚
-- 最小 export / import 已可使用
-- import validation 與 local recovery 已補上第一輪
+### Save / Load
+目前已有：
 
-## 設計原則
+- `Save to Cloud`
+- `Load from Cloud`
 
-### 1. 人主導，AI 增強
-方向由人決定。
-AI 負責協助發散、整理、重組、補充、維護結構。
+第一次寫入 Firestore 時，需要先手動按一次 `Save to Cloud`。
+之後如果 Firestore 已有資料，就可以透過 `Load from Cloud` 載回。
 
-### 2. 結構比聊天紀錄重要
-重要想法應該變成可保存的節點，而不是散落在聊天訊息裡。
+### Autosave
+目前 autosave 採用刻意保守的設計：
 
-### 3. UI 與 Agent 都能操作
-這是核心要求。
-這套資料層必須同時適合 Jones 自己操作，也適合 Jarvis 穩定讀寫。
+- `localStorage` 仍然是即時保存
+- Firestore autosave 只在內容真正變動後排程
+- debounce 1500ms
+- 只對 owner + 已登入啟用
+- 保留手動 `Save to Cloud` 按鈕作為 fallback
+- `Load from Cloud` 成功後會 suppress 下一次 autosave，避免剛 load 完又立刻 save 回去
 
-### 4. tree-first，graph-ready
-前期互動仍以 tree-like 為主，但資料設計不要把未來永遠鎖死在單一父子世界。
+Sidebar 目前會顯示簡單 autosave 狀態：
 
-### 5. 先分清楚 persistence 層次，再談雲端
-不要把 runtime state、local persistence、export file、雲端 document 混在一起。
+- `Cloud autosave idle`
+- `Unsaved cloud changes`
+- `Saving...`
+- `Saved`
+- `Autosave failed`
 
-## 當前資料模型方向
+## 為什麼目前這樣做
 
-目前 schema 主幹至少包含：
+這一版不是要追求最完整，而是追求：
+
+> *穩、薄、不引入新 loop。*
+
+我們剛經歷過 React Flow / Zustand / Firebase 同步相關的 render loop 問題，所以這一版很刻意地避免：
+
+- 每個 state 變化都立刻打 Firestore
+- 把 autosave 做成新的 effect 災難
+- 過早加入多人協作抽象
+- 過早加入 version history
+- 過早拔掉手動 save
+
+## 資料模型現況
 
 ### Canvas
-- `id`
-- `title`
-- `rootNodeId`
-- `createdAt`
-- `updatedAt`
+
+```ts
+interface Canvas {
+  id: string
+  title: string
+  rootNodeId: string
+  createdAt: string
+  updatedAt: string
+}
+```
 
 ### ThoughtNode
-- `id`
-- `canvasId`
-- `title`
-- `content`
-- `childIds`
-- `parentId`
-- `links`
-- `tags`
-- `type`
-- `position`
-- `isExpanded`
-- `createdAt`
-- `updatedAt`
 
-## 本地開發與 Gemini prototype 使用方式
+```ts
+interface ThoughtNode {
+  id: string
+  canvasId: string
+  title: string
+  content: string
+  childIds: string[]
+  parentId: string | null
+  links: string[]
+  tags: string[]
+  type: 'root' | 'idea' | 'project' | 'principle' | 'note'
+  position: { x: number; y: number }
+  isExpanded?: boolean
+  createdAt: string
+  updatedAt: string
+}
+```
+
+### CanvasDocument
+
+```ts
+interface CanvasDocument {
+  canvas: Canvas
+  nodes: Record<string, ThoughtNode>
+}
+```
+
+### Presentation
+目前由下列欄位組成：
+
+- `flowDirection`
+- `nodeShape`
+- `nodeSize`
+- `nodeTextScale`
+
+## 本地開發
 
 ### 1. 安裝依賴
 
@@ -152,51 +191,76 @@ AI 負責協助發散、整理、重組、補充、維護結構。
 npm install
 ```
 
-### 2. 啟動本地開發
+### 2. 啟動開發環境
 
 ```bash
 npm run dev
 ```
 
-### 3. 啟用 Gemini prototype（選用）
-
-先把 `.env.example` 複製成 `.env.local`：
+### 3. 建立 `.env.local`
 
 ```bash
 cp .env.example .env.local
 ```
 
-然後填入自己的 key，例如：
+範例：
 
 ```bash
+VITE_FIREBASE_API_KEY=你的_firebase_web_api_key
 VITE_GEMINI_API_KEY=你的_gemini_api_key
 VITE_GEMINI_MODEL=gemini-2.5-flash
 ```
 
-之後重新啟動開發伺服器：
+## Firebase 設定
 
-```bash
-npm run dev
+目前 Firebase client config 已改成走 Vite env：
+
+- `VITE_FIREBASE_API_KEY`
+
+這不是為了把 web api key 當成秘密，而是為了：
+
+- 避免 key 再被硬寫進 repo
+- 降低 GitHub secret scanning 警報
+- 讓本地與部署設定更乾淨
+
+### Firestore rules
+目前建議的最小規則是：
+
+```js
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/canvases/{canvasId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+  }
+}
 ```
 
-### 4. 目前 Gemini 能做什麼
+## Gemini prototype
 
-目前 v0 prototype 的 Gemini 功能是：
+目前 Gemini 仍然是 prototype 模式，從前端直接打 API。
+
+功能：
 
 - 對單一節點按下 `✨`
-- 根據整張畫布的上下文
-- 為該節點產生數個子節點建議
-- 並直接新增進畫布
+- 根據整張畫布上下文
+- 產生子節點建議
+- 直接新增進畫布
 
-### 5. 重要提醒
+### 重要提醒
 
-目前這是 *prototype 用法*。
-`VITE_GEMINI_API_KEY` 屬於前端環境變數，適合本地測試，不適合正式公開部署。
+目前這仍然只適合 prototype / 個人測試。
+如果未來公開部署，Gemini 應移到 Cloud Functions 或其他 server-side proxy。
 
-如果之後要公開部署，應改成：
-- 前端保留畫布 UI
-- Gemini key 改放在 serverless proxy / Firebase Functions
-- 不把正式金鑰暴露在前端
+另外，若你看到：
+
+```text
+503 Service Unavailable
+```
+
+這通常是 Google 端暫時不可用，不一定是 app 本身壞掉。
 
 ## 專案結構
 
@@ -208,6 +272,7 @@ thinking-canvas/
 │   ├── handoff-guide.md
 │   ├── product-direction.md
 │   ├── roadmap.md
+│   ├── save-file-spec-v1.md
 │   └── storage-architecture.md
 ├── src/
 │   ├── components/
@@ -216,24 +281,44 @@ thinking-canvas/
 │   └── types/
 ```
 
-## 必讀文件順序
+## 建議閱讀順序
 
-如果是 Jones、Jarvis、或任何後續接手的 agent，要先看：
+如果你是 Jones、Jarvis，或下一位中途接手的 agent，建議先讀：
 
 1. `README.md`
 2. `docs/roadmap.md`
 3. `docs/storage-architecture.md`
-4. `docs/handoff-guide.md`
-5. `docs/architecture-notes.md`
+4. `docs/architecture-notes.md`
+5. `docs/handoff-guide.md`
+6. `docs/save-file-spec-v1.md`
 
-這幾份讀完後，應該要能直接接著做，不需要重新猜方向。
+## 下一步最值得做的事
 
-## 立即下一步
+目前這個 checkpoint 完成後，最合理的下一批工作是：
 
-如果下一個 session 的 agent 要直接開工，最合理的下一步是：
-1. 規劃 Firestore 中 `document` / `presentation` 的邊界
-2. 決定 Firebase / Firestore 最小讀寫策略
-3. 補最小安全規則或至少先寫出規則草案
-4. 再開始雲端 persistence 實作
+1. 強化 autosave UX
+   - 更清楚的 save status
+   - 更平滑的 saved 時間提示
 
-目前不需要優先做重型 migration framework，也不需要急著抽象出獨立 `userPreference` 層。
+2. Firestore rules 補強
+   - 欄位型別檢查
+   - 防空 document / 空 nodes
+
+3. Cloud document metadata 再整理
+   - 是否補 `createdAt`
+   - 未來 canvas list 所需欄位
+
+4. Gemini 正式化路線
+   - 改走 Cloud Functions
+   - 加 retry / fallback / backoff
+
+5. 未來可能的 canvas list / multiple documents
+   - 不再只固定 `main`
+
+## 收尾原則
+
+這個 repo 有一個非常重要的工作規則：
+
+> *只要完成一個可保存、可交付、可追蹤的 checkpoint，就 commit + push。*
+
+因為 Jones 常直接從遠端或手機看結果，不 push 等於看不到。

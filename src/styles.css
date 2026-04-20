@@ -210,6 +210,52 @@ button {
   font-weight: 700;
 }
 
+.autosave-state {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.theme-dark .autosave-state--idle {
+  color: #8fa0c6;
+}
+
+.theme-light .autosave-state--idle {
+  color: #5b6784;
+}
+
+.theme-dark .autosave-state--dirty {
+  color: #f1c76b;
+}
+
+.theme-light .autosave-state--dirty {
+  color: #9a6400;
+}
+
+.theme-dark .autosave-state--saving {
+  color: #7dc8ff;
+}
+
+.theme-light .autosave-state--saving {
+  color: #145f9b;
+}
+
+.theme-dark .autosave-state--saved {
+  color: #8ce0b1;
+}
+
+.theme-light .autosave-state--saved {
+  color: #1c7a47;
+}
+
+.theme-dark .autosave-state--error {
+  color: #ff9aa9;
+}
+
+.theme-light .autosave-state--error {
+  color: #a1263c;
+}
+
 .theme-dark .auth-mode.viewer {
   color: #d7c28b;
 }
