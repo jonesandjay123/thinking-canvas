@@ -195,6 +195,15 @@ button {
   gap: 8px;
 }
 
+.auth-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-copy {
+  margin: 0;
+}
+
 .stack-actions {
   display: grid;
   gap: 8px;

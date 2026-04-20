@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { User } from 'firebase/auth'
 import sampleCanvas from '../data/sample-canvas.json'
 import type {
   CanvasDocument,
@@ -99,6 +100,9 @@ function loadUiSettings(): UiSettings {
 export interface CanvasStore extends UiSettings {
   document: CanvasDocument
   nodes: ThoughtNode[]
+  authLoading: boolean
+  isLoggedIn: boolean
+  user: User | null
   createChild: (parentId: string, partial?: Partial<ThoughtNode>) => void
   updateNode: (nodeId: string, patch: Partial<ThoughtNode>) => void
   deleteNode: (nodeId: string) => void
@@ -112,12 +116,14 @@ export interface CanvasStore extends UiSettings {
   setNodeSize: (size: NodeSize) => void
   setDocument: (document: CanvasDocument) => void
   importState: (input: { document: CanvasDocument; presentation: Pick<UiSettings, 'flowDirection' | 'nodeShape' | 'nodeSize' | 'nodeTextScale'> }) => void
+  setAuthState: (input: { loading: boolean; user: User | null }) => void
   reset: () => void
 }
 
 export function useCanvasStore(): CanvasStore {
   const [document, setDocumentState] = useState<CanvasDocument>(() => loadInitialDocument())
   const [ui, setUi] = useState<UiSettings>(() => loadUiSettings())
+  const [authState, setAuthState] = useState<{ loading: boolean; user: User | null }>({ loading: true, user: null })
 
   useEffect(() => {
     localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(ui))
@@ -133,6 +139,9 @@ export function useCanvasStore(): CanvasStore {
   return {
     document,
     nodes,
+    authLoading: authState.loading,
+    isLoggedIn: Boolean(authState.user),
+    user: authState.user,
     ...ui,
     createChild: (parentId: string, partial?: Partial<ThoughtNode>) =>
       persist(createNode(document, parentId, partial)),
@@ -160,6 +169,7 @@ export function useCanvasStore(): CanvasStore {
         nodeTextScale: presentation.nodeTextScale,
       }))
     },
+    setAuthState: ({ loading, user }) => setAuthState({ loading, user }),
     reset: () => {
       localStorage.removeItem(STORAGE_KEY)
       localStorage.removeItem(UI_STORAGE_KEY)

@@ -3,6 +3,7 @@ import { FlowCanvas } from './components/FlowCanvas'
 import { useCanvasStore } from './lib/store'
 import { geminiReady } from './lib/gemini'
 import { createSaveFileV1, parseSaveFileV1 } from './lib/save-file'
+import { logOut, signInWithGoogle, subscribeToAuthState } from './lib/auth'
 import type { FlowDirection, NodeShape, NodeSize, NodeTextScale } from './types/canvas'
 
 const directionOptions: FlowDirection[] = ['TB', 'BT', 'LR', 'RL']
@@ -55,6 +56,14 @@ function App() {
     document.documentElement.setAttribute('data-theme', store.theme)
   }, [store.theme])
 
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthState((user) => {
+      store.setAuthState({ loading: false, user })
+    })
+
+    return unsubscribe
+  }, [store])
+
   const handleExport = () => {
     const saveFile = createSaveFileV1({
       document: store.document,
@@ -95,6 +104,28 @@ function App() {
     }
   }
 
+  const handleLogin = async () => {
+    try {
+      await signInWithGoogle()
+      setStatusMessage('已登入 Google。')
+      setStatusTone('success')
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Google 登入失敗。')
+      setStatusTone('error')
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logOut()
+      setStatusMessage('已登出。')
+      setStatusTone('success')
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : '登出失敗。')
+      setStatusTone('error')
+    }
+  }
+
   return (
     <div className={`app-shell theme-${store.theme}`}>
       <aside className="sidebar">
@@ -102,6 +133,25 @@ function App() {
           <p className="eyebrow">Thinking Canvas</p>
           <h1>{store.document.canvas.title}</h1>
           <p className="sidebar-copy">核心畫布已改成 React Flow，現在把控制面板收斂成真正有用的設定。</p>
+        </div>
+
+        <div className="sidebar-panel">
+          <h2>登入狀態</h2>
+          {store.authLoading ? (
+            <p className="sidebar-copy auth-copy">正在確認登入狀態...</p>
+          ) : store.isLoggedIn ? (
+            <div className="auth-stack">
+              <p className="sidebar-copy auth-copy">已登入：{store.user?.email ?? 'unknown user'}</p>
+              <button className="secondary" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="auth-stack">
+              <p className="sidebar-copy auth-copy">目前未登入，先接好 Google Auth 流程。</p>
+              <button onClick={handleLogin}>Login with Google</button>
+            </div>
+          )}
         </div>
 
         <div className="sidebar-panel">
