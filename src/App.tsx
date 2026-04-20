@@ -52,6 +52,7 @@ function App() {
   const store = useCanvasStore()
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'neutral' | 'success' | 'error'>('neutral')
+  const [cloudBusy, setCloudBusy] = useState<'save' | 'load' | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const isOwner = store.user?.email === OWNER_EMAIL
   const canEdit = !store.authLoading && isOwner
@@ -127,6 +128,39 @@ function App() {
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : '登出失敗。')
       setStatusTone('error')
+    }
+  }
+
+  const handleCloudSave = async () => {
+    try {
+      setCloudBusy('save')
+      await store.saveToCloud()
+      setStatusMessage('已儲存到 Firestore。')
+      setStatusTone('success')
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : '雲端儲存失敗。')
+      setStatusTone('error')
+    } finally {
+      setCloudBusy(null)
+    }
+  }
+
+  const handleCloudLoad = async () => {
+    try {
+      setCloudBusy('load')
+      const loaded = await store.loadFromCloud()
+      if (!loaded) {
+        setStatusMessage('雲端尚未有這張 canvas 的存檔。')
+        setStatusTone('neutral')
+        return
+      }
+      setStatusMessage('已從 Firestore 載入，並覆蓋本地狀態。')
+      setStatusTone('success')
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : '雲端載入失敗。')
+      setStatusTone('error')
+    } finally {
+      setCloudBusy(null)
     }
   }
 
@@ -259,6 +293,15 @@ function App() {
               匯入 JSON
             </button>
             <input ref={fileInputRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={handleImportFile} />
+          </div>
+
+          <div className="stack-actions field-label--spaced">
+            <button className="secondary" onClick={handleCloudSave} disabled={!canEdit || cloudBusy !== null}>
+              {cloudBusy === 'save' ? '儲存中...' : 'Save to Cloud'}
+            </button>
+            <button className="secondary" onClick={handleCloudLoad} disabled={!canEdit || cloudBusy !== null}>
+              {cloudBusy === 'load' ? '載入中...' : 'Load from Cloud'}
+            </button>
           </div>
 
           <button className="secondary" onClick={() => store.setTheme(store.theme === 'dark' ? 'light' : 'dark')} disabled={!canEdit}>

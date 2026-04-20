@@ -12,6 +12,7 @@ import type {
   ThoughtNode,
 } from '../types/canvas'
 import { createNode, deleteNode, moveNode, updateNode } from './actions'
+import { loadFromCloud, saveToCloud } from './cloud'
 
 const STORAGE_KEY = 'thinking-canvas-document'
 const UI_STORAGE_KEY = 'thinking-canvas-ui'
@@ -116,6 +117,8 @@ export interface CanvasStore extends UiSettings {
   setNodeSize: (size: NodeSize) => void
   setDocument: (document: CanvasDocument) => void
   importState: (input: { document: CanvasDocument; presentation: Pick<UiSettings, 'flowDirection' | 'nodeShape' | 'nodeSize' | 'nodeTextScale'> }) => void
+  saveToCloud: () => Promise<void>
+  loadFromCloud: () => Promise<boolean>
   setAuthState: (input: { loading: boolean; user: User | null }) => void
   reset: () => void
 }
@@ -168,6 +171,47 @@ export function useCanvasStore(): CanvasStore {
         nodeSize: presentation.nodeSize,
         nodeTextScale: presentation.nodeTextScale,
       }))
+    },
+    saveToCloud: async () => {
+      if (!authState.user) {
+        throw new Error('請先登入後再儲存到雲端。')
+      }
+
+      await saveToCloud({
+        uid: authState.user.uid,
+        canvasId: document.canvas.id,
+        document,
+        presentation: {
+          flowDirection: ui.flowDirection,
+          nodeShape: ui.nodeShape,
+          nodeSize: ui.nodeSize,
+          nodeTextScale: ui.nodeTextScale,
+        },
+      })
+    },
+    loadFromCloud: async () => {
+      if (!authState.user) {
+        throw new Error('請先登入後再從雲端載入。')
+      }
+
+      const cloudState = await loadFromCloud({
+        uid: authState.user.uid,
+        canvasId: document.canvas.id,
+      })
+
+      if (!cloudState) {
+        return false
+      }
+
+      persist(cloudState.document)
+      setUi((current) => ({
+        ...current,
+        flowDirection: cloudState.presentation.flowDirection,
+        nodeShape: cloudState.presentation.nodeShape,
+        nodeSize: cloudState.presentation.nodeSize,
+        nodeTextScale: cloudState.presentation.nodeTextScale,
+      }))
+      return true
     },
     setAuthState: ({ loading, user }) => setAuthState({ loading, user }),
     reset: () => {
