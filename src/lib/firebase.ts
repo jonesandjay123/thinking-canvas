@@ -2,8 +2,14 @@ import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
+const firebaseApiKey = import.meta.env.VITE_FIREBASE_API_KEY
+
+if (!firebaseApiKey) {
+  throw new Error('Missing VITE_FIREBASE_API_KEY. Add it to your .env.local before starting the app.')
+}
+
 const firebaseConfig = {
-  apiKey: 'AIzaSyAmRYZ7piUkqTdxPqlUL9WU7sM9jw5QBwg',
+  apiKey: firebaseApiKey,
   authDomain: 'thinking-canvas.firebaseapp.com',
   projectId: 'thinking-canvas',
   storageBucket: 'thinking-canvas.firebasestorage.app',
