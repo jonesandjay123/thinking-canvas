@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
 import type { User } from 'firebase/auth'
+import { create } from 'zustand'
 import sampleCanvas from '../data/sample-canvas.json'
 import type {
   CanvasDocument,
@@ -15,7 +15,6 @@ import { createNode, deleteNode, moveNode, updateNode } from './actions'
 import { loadFromCloud, saveToCloud } from './cloud'
 
 const fallbackDocument = sampleCanvas as CanvasDocument
-
 const STORAGE_KEY = 'thinking-canvas-document'
 const UI_STORAGE_KEY = 'thinking-canvas-ui'
 
@@ -57,7 +56,7 @@ function normalizeDocument(value: unknown): CanvasDocument | null {
     return null
   }
 
-  if (!(canvas.rootNodeId in value.nodes)) return null
+  if (!(canvas.rootNodeId in value.nodes) || Object.keys(value.nodes).length === 0) return null
 
   return value as unknown as CanvasDocument
 }
@@ -100,6 +99,14 @@ function loadUiSettings(): UiSettings {
   return defaultUiSettings
 }
 
+const initialDocument = loadInitialDocument()
+const initialUi = loadUiSettings()
+
+type AuthState = {
+  loading: boolean
+  user: User | null
+}
+
 export interface CanvasStore extends UiSettings {
   document: CanvasDocument
   nodes: ThoughtNode[]
@@ -121,107 +128,134 @@ export interface CanvasStore extends UiSettings {
   importState: (input: { document: CanvasDocument; presentation: Pick<UiSettings, 'flowDirection' | 'nodeShape' | 'nodeSize' | 'nodeTextScale'> }) => void
   saveToCloud: () => Promise<void>
   loadFromCloud: () => Promise<boolean>
-  setAuthState: (input: { loading: boolean; user: User | null }) => void
+  setAuthState: (input: AuthState) => void
   reset: () => void
 }
 
-export function useCanvasStore(): CanvasStore {
-  const [document, setDocumentState] = useState<CanvasDocument>(() => loadInitialDocument())
-  const [ui, setUi] = useState<UiSettings>(() => loadUiSettings())
-  const [authState, setAuthState] = useState<{ loading: boolean; user: User | null }>({ loading: true, user: null })
+function persistDocument(nextDocument: CanvasDocument, set: (partial: Partial<CanvasStore>) => void) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(nextDocument))
+  set({
+    document: nextDocument,
+    nodes: Object.values(nextDocument.nodes),
+  })
+}
 
-  useEffect(() => {
-    localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(ui))
-  }, [ui])
+function persistUi(nextUi: Partial<UiSettings>, set: (updater: (state: CanvasStore) => Partial<CanvasStore>) => void) {
+  set((state) => {
+    const merged = {
+      aiExpandCount: nextUi.aiExpandCount ?? state.aiExpandCount,
+      controlDock: nextUi.controlDock ?? state.controlDock,
+      theme: nextUi.theme ?? state.theme,
+      flowDirection: nextUi.flowDirection ?? state.flowDirection,
+      nodeTextScale: nextUi.nodeTextScale ?? state.nodeTextScale,
+      nodeShape: nextUi.nodeShape ?? state.nodeShape,
+      nodeSize: nextUi.nodeSize ?? state.nodeSize,
+    }
+    localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(merged))
+    return merged
+  })
+}
 
-  const persist = (nextDocument: CanvasDocument) => {
-    setDocumentState(nextDocument)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextDocument))
-  }
-
-  const nodes = useMemo(() => Object.values(document.nodes), [document])
-
-  return {
-    document,
-    nodes,
-    authLoading: authState.loading,
-    isLoggedIn: Boolean(authState.user),
-    user: authState.user,
-    ...ui,
-    createChild: (parentId: string, partial?: Partial<ThoughtNode>) =>
-      persist(createNode(document, parentId, partial)),
-    updateNode: (nodeId: string, patch: Partial<ThoughtNode>) =>
-      persist(updateNode(document, nodeId, patch)),
-    deleteNode: (nodeId: string) => persist(deleteNode(document, nodeId)),
-    moveNode: (nodeId: string, position: ThoughtNode['position']) =>
-      persist(moveNode(document, nodeId, position)),
-    setAiExpandCount: (count: number) =>
-      setUi((current) => ({ ...current, aiExpandCount: Math.min(5, Math.max(1, count)) })),
-    setControlDock: (dock: ControlDock) => setUi((current) => ({ ...current, controlDock: dock })),
-    setTheme: (theme: ThemeMode) => setUi((current) => ({ ...current, theme })),
-    setFlowDirection: (flowDirection: FlowDirection) => setUi((current) => ({ ...current, flowDirection })),
-    setNodeTextScale: (nodeTextScale: NodeTextScale) => setUi((current) => ({ ...current, nodeTextScale })),
-    setNodeShape: (nodeShape: NodeShape) => setUi((current) => ({ ...current, nodeShape })),
-    setNodeSize: (nodeSize: NodeSize) => setUi((current) => ({ ...current, nodeSize })),
-    setDocument: (nextDocument: CanvasDocument) => persist(nextDocument),
-    importState: ({ document: nextDocument, presentation }) => {
-      persist(nextDocument)
-      setUi((current) => ({
-        ...current,
+export const useCanvasStore = create<CanvasStore>((set, get) => ({
+  document: initialDocument,
+  nodes: Object.values(initialDocument.nodes),
+  authLoading: true,
+  isLoggedIn: false,
+  user: null,
+  ...initialUi,
+  createChild: (parentId, partial) => {
+    const nextDocument = createNode(get().document, parentId, partial)
+    persistDocument(nextDocument, set)
+  },
+  updateNode: (nodeId, patch) => {
+    const nextDocument = updateNode(get().document, nodeId, patch)
+    persistDocument(nextDocument, set)
+  },
+  deleteNode: (nodeId) => {
+    const nextDocument = deleteNode(get().document, nodeId)
+    persistDocument(nextDocument, set)
+  },
+  moveNode: (nodeId, position) => {
+    const nextDocument = moveNode(get().document, nodeId, position)
+    persistDocument(nextDocument, set)
+  },
+  setAiExpandCount: (count) => persistUi({ aiExpandCount: Math.min(5, Math.max(1, count)) }, set),
+  setControlDock: (dock) => persistUi({ controlDock: dock }, set),
+  setTheme: (theme) => persistUi({ theme }, set),
+  setFlowDirection: (flowDirection) => persistUi({ flowDirection }, set),
+  setNodeTextScale: (nodeTextScale) => persistUi({ nodeTextScale }, set),
+  setNodeShape: (nodeShape) => persistUi({ nodeShape }, set),
+  setNodeSize: (nodeSize) => persistUi({ nodeSize }, set),
+  setDocument: (document) => persistDocument(document, set),
+  importState: ({ document, presentation }) => {
+    persistDocument(document, set)
+    persistUi(
+      {
         flowDirection: presentation.flowDirection,
         nodeShape: presentation.nodeShape,
         nodeSize: presentation.nodeSize,
         nodeTextScale: presentation.nodeTextScale,
-      }))
-    },
-    saveToCloud: async () => {
-      if (!authState.user) {
-        throw new Error('請先登入後再儲存到雲端。')
-      }
+      },
+      set,
+    )
+  },
+  saveToCloud: async () => {
+    const state = get()
+    if (!state.user) {
+      throw new Error('請先登入後再儲存到雲端。')
+    }
 
-      await saveToCloud({
-        uid: authState.user.uid,
-        canvasId: document.canvas.id,
-        document,
-        presentation: {
-          flowDirection: ui.flowDirection,
-          nodeShape: ui.nodeShape,
-          nodeSize: ui.nodeSize,
-          nodeTextScale: ui.nodeTextScale,
-        },
-      })
-    },
-    loadFromCloud: async () => {
-      if (!authState.user) {
-        throw new Error('請先登入後再從雲端載入。')
-      }
+    await saveToCloud({
+      uid: state.user.uid,
+      canvasId: state.document.canvas.id,
+      document: state.document,
+      presentation: {
+        flowDirection: state.flowDirection,
+        nodeShape: state.nodeShape,
+        nodeSize: state.nodeSize,
+        nodeTextScale: state.nodeTextScale,
+      },
+    })
+  },
+  loadFromCloud: async () => {
+    const state = get()
+    if (!state.user) {
+      throw new Error('請先登入後再從雲端載入。')
+    }
 
-      const cloudState = await loadFromCloud({
-        uid: authState.user.uid,
-        canvasId: document.canvas.id,
-      })
+    const cloudState = await loadFromCloud({
+      uid: state.user.uid,
+      canvasId: state.document.canvas.id,
+    })
 
-      if (!cloudState) {
-        return false
-      }
+    if (!cloudState) {
+      return false
+    }
 
-      const nextDocument = normalizeDocument(cloudState.document) ?? fallbackDocument
-      persist(nextDocument)
-      setUi((current) => ({
-        ...current,
+    const nextDocument = normalizeDocument(cloudState.document) ?? fallbackDocument
+    persistDocument(nextDocument, set)
+    persistUi(
+      {
         flowDirection: cloudState.presentation.flowDirection,
         nodeShape: cloudState.presentation.nodeShape,
         nodeSize: cloudState.presentation.nodeSize,
         nodeTextScale: cloudState.presentation.nodeTextScale,
-      }))
-      return true
-    },
-    setAuthState: ({ loading, user }) => setAuthState({ loading, user }),
-    reset: () => {
-      localStorage.removeItem(STORAGE_KEY)
-      localStorage.removeItem(UI_STORAGE_KEY)
-      persist(fallbackDocument)
-      setUi(defaultUiSettings)
-    },
-  }
-}
+      },
+      set,
+    )
+    return true
+  },
+  setAuthState: ({ loading, user }) => {
+    set({
+      authLoading: loading,
+      isLoggedIn: Boolean(user),
+      user,
+    })
+  },
+  reset: () => {
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(UI_STORAGE_KEY)
+    persistDocument(fallbackDocument, set)
+    persistUi(defaultUiSettings, set)
+  },
+}))
