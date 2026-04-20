@@ -64,6 +64,13 @@ function App() {
   useEffect(() => {
     const unsubscribe = subscribeToAuthState((user) => {
       store.setAuthState({ loading: false, user })
+
+      if (import.meta.env.DEV) {
+        console.debug('[auth state]', {
+          email: user?.email ?? null,
+          uid: user?.uid ?? null,
+        })
+      }
     })
 
     return unsubscribe
@@ -134,6 +141,12 @@ function App() {
   const handleCloudSave = async () => {
     try {
       setCloudBusy('save')
+      if (import.meta.env.DEV) {
+        console.debug('[cloud save:start]', {
+          canvasId: store.document.canvas.id,
+          nodeCount: Object.keys(store.document.nodes).length,
+        })
+      }
       await store.saveToCloud()
       setStatusMessage('已儲存到 Firestore。')
       setStatusTone('success')
@@ -148,6 +161,12 @@ function App() {
   const handleCloudLoad = async () => {
     try {
       setCloudBusy('load')
+      if (import.meta.env.DEV) {
+        console.debug('[cloud load:start]', {
+          canvasId: store.document.canvas.id,
+          localNodeCount: Object.keys(store.document.nodes).length,
+        })
+      }
       const loaded = await store.loadFromCloud()
       if (!loaded) {
         setStatusMessage('雲端尚未有這張 canvas 的存檔，已保留目前本地畫布。')

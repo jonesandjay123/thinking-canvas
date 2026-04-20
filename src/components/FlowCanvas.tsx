@@ -434,10 +434,7 @@ function FlowCanvasInner({
     if (lastFlowDirectionRef.current === flowDirection) return
     lastFlowDirectionRef.current = flowDirection
 
-    const relaid = layoutDocument(document, flowDirection)
-    if (JSON.stringify(relaid.nodes) !== JSON.stringify(document.nodes)) {
-      persistDocument(relaid)
-    }
+    persistDocument(layoutDocument(document, flowDirection))
   }, [canEdit, document, flowDirection, persistDocument])
 
   const handleGenerate = useCallback(
@@ -542,9 +539,21 @@ function FlowCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(document))
 
   useEffect(() => {
-    setNodes(buildNodes(document))
-    setEdges(buildEdges(document))
-  }, [document, buildNodes, buildEdges, setNodes, setEdges])
+    const nextNodes = buildNodes(document)
+    const nextEdges = buildEdges(document)
+    setNodes(nextNodes)
+    setEdges(nextEdges)
+
+    if (import.meta.env.DEV) {
+      console.debug('[FlowCanvas sync]', {
+        canvasId: document.canvas.id,
+        nodeCount: nextNodes.length,
+        edgeCount: nextEdges.length,
+        flowDirection,
+        canEdit,
+      })
+    }
+  }, [document, buildNodes, buildEdges, setNodes, setEdges, flowDirection, canEdit])
 
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent | React.TouchEvent, draggedNode: Node) => {
