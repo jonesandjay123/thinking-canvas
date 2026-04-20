@@ -535,18 +535,13 @@ function FlowCanvasInner({
     [axis.source, axis.target, canEdit, controlDock, geminiEnabled, generatingNodeId, handleAddChild, handleDelete, handleGenerate, handleToggleExpand, handleCommit, nodeShape, nodeSize, nodeTextScale, theme],
   )
 
-  const syncSignature = `${document.canvas.id}:${document.canvas.updatedAt}:${flowDirection}:${canEdit}:${generatingNodeId ?? 'idle'}:${nodeShape}:${nodeSize}:${nodeTextScale}:${controlDock}:${theme}`
-
   const derivedNodes = useMemo(() => buildNodes(document), [buildNodes, document])
   const derivedEdges = useMemo(() => buildEdges(document), [buildEdges, document])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(derivedNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(derivedEdges)
+  const [, , onNodesChange] = useNodesState(derivedNodes)
+  const [, , onEdgesChange] = useEdgesState(derivedEdges)
 
   useEffect(() => {
-    setNodes(derivedNodes)
-    setEdges(derivedEdges)
-
     if (import.meta.env.DEV) {
       console.debug('[FlowCanvas sync]', {
         canvasId: document.canvas.id,
@@ -554,10 +549,9 @@ function FlowCanvasInner({
         edgeCount: derivedEdges.length,
         flowDirection,
         canEdit,
-        syncSignature,
       })
     }
-  }, [syncSignature, derivedNodes, derivedEdges, setNodes, setEdges])
+  }, [document.canvas.id, document.canvas.updatedAt, derivedNodes.length, derivedEdges.length, flowDirection, canEdit])
 
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent | React.TouchEvent, draggedNode: Node) => {
@@ -620,8 +614,8 @@ function FlowCanvasInner({
   return (
     <div className="flow-shell">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={derivedNodes}
+        edges={derivedEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}

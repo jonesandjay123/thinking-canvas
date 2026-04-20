@@ -50,6 +50,7 @@ function formatTimestampFilename(date = new Date()) {
 
 function App() {
   const store = useCanvasStore()
+  const setAuthState = useCanvasStore((state) => state.setAuthState)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'neutral' | 'success' | 'error'>('neutral')
   const [cloudBusy, setCloudBusy] = useState<'save' | 'load' | null>(null)
@@ -63,7 +64,7 @@ function App() {
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthState((user) => {
-      store.setAuthState({ loading: false, user })
+      setAuthState({ loading: false, user })
 
       if (import.meta.env.DEV) {
         console.debug('[auth state]', {
@@ -74,7 +75,7 @@ function App() {
     })
 
     return unsubscribe
-  }, [store])
+  }, [setAuthState])
 
   const handleExport = () => {
     const saveFile = createSaveFileV1({
