@@ -1,5 +1,5 @@
 const { GoogleGenAI } = require('@google/genai')
-const { onRequest, HttpsError } = require('firebase-functions/v2/https')
+const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params')
 const logger = require('firebase-functions/logger')
 const admin = require('firebase-admin')
@@ -79,35 +79,23 @@ function parseSuggestions(rawText, count) {
   return parsed.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean).slice(0, count)
 }
 
-exports.generateNodeIdeas = onRequest(
+exports.generateNodeIdeas = onCall(
   {
     region: 'us-central1',
     timeoutSeconds: 60,
     memory: '256MiB',
     secrets: [GEMINI_API_KEY],
-    cors: ['http://localhost:5173', 'https://thinking-canvas.web.app', 'https://thinking-canvas.firebaseapp.com'],
   },
-  async (req, res) => {
-    if (req.method === 'OPTIONS') {
-      res.status(204).send('')
-      return
-    }
+  async (request) => {
+    const context = normalizeNodeContext(request.data)
+    const apiKey = GEMINI_API_KEY.value()
 
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' })
-      return
+    if (!apiKey) {
+      logger.error('GEMINI_API_KEY secret is missing')
+      throw new HttpsError('failed-precondition', '伺服器尚未設定 Gemini secret。')
     }
 
     try {
-      const context = normalizeNodeContext(req.body)
-      const apiKey = GEMINI_API_KEY.value()
-
-      if (!apiKey) {
-        logger.error('GEMINI_API_KEY secret is missing')
-        res.status(500).json({ error: '伺服器尚未設定 Gemini secret。' })
-        return
-      }
-
       const ai = new GoogleGenAI({ apiKey })
       const response = await ai.models.generateContent({
         model: context.model,
@@ -117,14 +105,16 @@ exports.generateNodeIdeas = onRequest(
       const rawText = response.text || ''
       const suggestions = parseSuggestions(rawText, context.count)
 
-      res.json({
+      return {
         suggestions,
         model: context.model,
-      })
+      }
     } catch (error) {
       logger.error('generateNodeIdeas failed', error)
-      const message = error instanceof HttpsError ? error.message : 'Gemini 產生建議失敗，請稍後再試。'
-      res.status(500).json({ error: message })
+      if (error instanceof HttpsError) {
+        throw error
+      }
+      throw new HttpsError('internal', 'Gemini 產生建議失敗，請稍後再試。')
     }
   },
 )
