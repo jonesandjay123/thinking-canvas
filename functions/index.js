@@ -87,10 +87,6 @@ exports.generateNodeIdeas = onCall(
     secrets: [GEMINI_API_KEY],
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', '請先登入後再使用 AI 展開。')
-    }
-
     const context = normalizeNodeContext(request.data)
     const apiKey = GEMINI_API_KEY.value()
 
