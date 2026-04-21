@@ -208,6 +208,8 @@ cp .env.example .env.local
 ```bash
 VITE_FIREBASE_API_KEY=你的_firebase_web_api_key
 VITE_GEMINI_MODEL=gemini-2.5-flash
+# Optional: local Functions emulator only
+# VITE_USE_FUNCTIONS_EMULATOR=true
 ```
 
 ## Firebase 設定

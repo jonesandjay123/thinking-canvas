@@ -82,7 +82,6 @@ function parseSuggestions(rawText, count) {
 exports.generateNodeIdeas = onCall(
   {
     region: 'us-central1',
-    cors: true,
     timeoutSeconds: 60,
     memory: '256MiB',
     secrets: [GEMINI_API_KEY],
