@@ -17,7 +17,8 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已
 
 - 穩住 autosave 體驗
 - 補 Firestore rules 與 metadata
-- 規劃下一步 multiple canvas / Gemini 正式化
+- 完成 Firebase Hosting / production 收尾
+- 再往 multiple canvas 與 AI 體驗優化前進
 
 ## 現在的明確限制
 
@@ -75,7 +76,7 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已
 - Firestore rules 補強草案
 - cloud metadata 補強
 - README / docs 與新 checkpoint 保持同步
-- Gemini Cloud Functions 路線落地與驗證
+- Gemini Cloud Functions 已落地，下一步改成 Hosting / production 收尾
 
 ## 完成後的收尾
 

@@ -241,25 +241,35 @@ service cloud.firestore {
 
 ## Gemini / AI proxy
 
-目前 AI 子節點建議已改成經過 Firebase Functions server-side proxy。
+目前 AI 子節點建議已改成經過 Firebase Functions server-side proxy，這條線已完成可用版本驗證。
 
 架構：
 
 - Frontend 呼叫 callable function `generateNodeIdeas`
 - Function 端使用 `GEMINI_API_KEY` secret 呼叫 Gemini
 - 前端不再持有 Gemini API key
+- 2nd gen function 底層需要允許瀏覽器 invoke，真正的 owner-only / auth gate 留在 app / function 邏輯層
 
 ### 本地開發前置
 
 1. 安裝前端依賴
 2. 安裝 functions 依賴
 3. 設定 Firebase secret
+4. 確認對應的 2nd gen Cloud Run service 允許 unauthenticated invoke
 
 ```bash
 npm install
 cd functions && npm install && cd ..
 npx firebase-tools functions:secrets:set GEMINI_API_KEY
+npx firebase-tools deploy --only functions --project thinking-canvas
 ```
+
+### 這次實作踩到的關鍵點
+
+- Firebase Functions 2nd gen 底層是 Cloud Run
+- deploy 成功不代表瀏覽器一定能呼叫成功
+- 如果 logs 出現 `The request was not authenticated`，根因通常不是 Gemini，也不一定是真正的 CORS 問題，而是 Cloud Run invoker 權限尚未放行
+- 這次最終解法是：允許底層 service 被瀏覽器呼叫，再把真正的產品權限控制維持在 app / function 邏輯層
 
 之後可用 emulator 或直接 deploy functions。
 
@@ -317,11 +327,15 @@ thinking-canvas/
    - 是否補 `createdAt`
    - 未來 canvas list 所需欄位
 
-4. Gemini 正式化路線
-   - 改走 Cloud Functions
+4. Gemini 體驗優化
    - 加 retry / fallback / backoff
+   - 補更清楚的 loading / error UX
 
-5. 未來可能的 canvas list / multiple documents
+5. Firebase Hosting 正式部署
+   - 補 production env
+   - 收斂 deploy 流程
+
+6. 未來可能的 canvas list / multiple documents
    - 不再只固定 `main`
 
 ## 收尾原則

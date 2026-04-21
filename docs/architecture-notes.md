@@ -125,9 +125,9 @@ users/{uid}/canvases/{canvasId}
 
 1. autosave UX 要不要再 polish
 2. Firestore rules 是否要補欄位型別與資料完整性檢查
-3. Gemini 是否要移到 Cloud Functions
-4. AI 展開時的 loading feedback 要如何更清楚、更有存在感
-5. Gemini prompt 是否要納入 sibling context，避免同層發想重複
+3. AI 展開時的 loading feedback 要如何更清楚、更有存在感
+4. Gemini prompt 是否要納入 sibling context，避免同層發想重複
+5. Firebase Hosting / production env 如何收斂
 6. multiple canvases 要如何進場
 
 ## 關於 sibling context 的當前判斷
@@ -150,10 +150,12 @@ users/{uid}/canvases/{canvasId}
 
 Firebase / Firestore 現在已經不是「下一步」，而是「已經接上但仍故意維持最小」。
 
+Gemini 也已經完成 server-side 化，現況是透過 Firebase Functions 2nd gen + Secret Manager 呼叫，前端不再持有 Gemini API key。這次落地也確認了一個重要運維事實：若 deploy 成功但瀏覽器呼叫失敗，應優先檢查底層 Cloud Run invoker 權限，而不要先被表面的 CORS 訊息誤導。
+
 比較穩的後續順序是：
 
 1. autosave UX 穩定
 2. Firestore rules 補強
 3. metadata 補強
-4. Gemini server-side 化
+4. Firebase Hosting / production 收尾
 5. 多 canvas 能力
