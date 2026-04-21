@@ -217,7 +217,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
             className="icon-button secondary nodrag nopan"
             onClick={() => data.onGenerate(thoughtNode.id)}
             disabled={!canEdit || !geminiEnabled || isGenerating}
-            title={geminiEnabled ? '使用 Gemini 產生子節點建議' : '請先設定 VITE_GEMINI_API_KEY'}
+            title={geminiEnabled ? '使用 AI 產生子節點建議' : 'AI 功能暫時不可用'}
           >
             {isGenerating ? '…' : '✨'}
           </button>
@@ -452,7 +452,7 @@ function FlowCanvasInner({
       try {
         const suggestions = await generateChildSuggestions(document, node, aiExpandCount)
         if (!suggestions.length) {
-          onStatus('Gemini 沒有產出可用建議，請再試一次。', 'error')
+          onStatus('AI 沒有產出可用建議，請再試一次。', 'error')
           return
         }
 
@@ -495,9 +495,9 @@ function FlowCanvasInner({
         })
 
         persistDocument(nextDocument)
-        onStatus(`Gemini 已為「${node.title}」新增 ${suggestions.length} 個子節點。`, 'success')
+        onStatus(`AI 已為「${node.title}」新增 ${suggestions.length} 個子節點。`, 'success')
       } catch (error) {
-        onStatus(error instanceof Error ? error.message : 'Gemini 展開失敗。', 'error')
+        onStatus(error instanceof Error ? error.message : 'AI 展開失敗。', 'error')
       } finally {
         setGeneratingNodeId(null)
       }

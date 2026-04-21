@@ -51,7 +51,7 @@ export function NodeCard({
             className="icon-button secondary"
             onClick={() => onGenerate(node.id)}
             disabled={!geminiEnabled || isGenerating}
-            title={geminiEnabled ? '使用 Gemini 產生子節點建議' : '請先設定 VITE_GEMINI_API_KEY'}
+            title={geminiEnabled ? '使用 AI 產生子節點建議' : 'AI 功能暫時不可用'}
           >
             {isGenerating ? '…' : '✨'}
           </button>

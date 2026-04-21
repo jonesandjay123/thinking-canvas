@@ -1,10 +1,25 @@
-import { GoogleGenAI } from '@google/genai'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from './firebase'
 import type { CanvasDocument, ThoughtNode } from '../types/canvas'
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY
 const model = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash'
 
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null
+type GenerateNodeIdeasRequest = {
+  title: string
+  content: string
+  path: string[]
+  existingChildren: string[]
+  treeContext: string
+  count: number
+  model: string
+}
+
+type GenerateNodeIdeasResponse = {
+  suggestions?: unknown
+  model?: string
+}
+
+const generateNodeIdeasCallable = httpsCallable<GenerateNodeIdeasRequest, GenerateNodeIdeasResponse>(functions, 'generateNodeIdeas')
 
 function buildTreeContext(document: CanvasDocument): string {
   const walk = (nodeId: string, depth = 0): string => {
@@ -34,7 +49,7 @@ function buildNodePath(document: CanvasDocument, node: ThoughtNode): string[] {
 }
 
 export function geminiReady(): boolean {
-  return Boolean(ai)
+  return true
 }
 
 export async function generateChildSuggestions(
@@ -42,50 +57,32 @@ export async function generateChildSuggestions(
   node: ThoughtNode,
   count = 3,
 ): Promise<string[]> {
-  if (!ai) {
-    throw new Error('Gemini API key 尚未設定，請先建立 .env.local 並填入 VITE_GEMINI_API_KEY。')
-  }
-
-  const treeContext = buildTreeContext(document)
-  const existingChildren = node.childIds
-    .map((childId) => document.nodes[childId]?.title)
-    .filter(Boolean)
-    .join('、')
-  const nodePath = buildNodePath(document, node).join(' → ')
-
-  const prompt = `你是一個協助發散思考的助手。
-
-目前整張思考畫布如下：
-${treeContext}
-
-現在要展開的節點是：${node.title}
-節點補充內容：${node.content || '（無）'}
-從 root 到目前節點的路徑：${nodePath}
-目前已存在的子節點：${existingChildren || '（無）'}
-
-請根據整體脈絡，為這個節點提供 ${count} 個適合新增的子節點標題。
-要求：
-1. 使用繁體中文
-2. 不要和現有子節點重複
-3. 每個建議都要簡潔，適合直接當成節點標題
-4. 回傳純 JSON array，例如：["方向一", "方向二"]
-5. 不要回傳任何額外說明文字。`
-
-  const response = await ai.models.generateContent({
+  const result = await generateNodeIdeasCallable({
+    title: node.title,
+    content: node.content || '',
+    path: buildNodePath(document, node),
+    existingChildren: node.childIds
+      .map((childId) => document.nodes[childId]?.title)
+      .filter((title): title is string => Boolean(title)),
+    treeContext: buildTreeContext(document),
+    count,
     model,
-    contents: prompt,
   })
 
-  const rawText = response.text ?? ''
-  const jsonMatch = rawText.match(/\[[\s\S]*\]/)
-  if (!jsonMatch) {
-    throw new Error('Gemini 回傳格式無法解析。')
+  const suggestions = result.data?.suggestions
+  if (!Array.isArray(suggestions)) {
+    throw new Error('AI 回傳格式不正確。')
   }
 
-  const parsed = JSON.parse(jsonMatch[0])
-  if (!Array.isArray(parsed)) {
-    throw new Error('Gemini 回傳不是陣列格式。')
+  const normalized = suggestions
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, count)
+
+  if (!normalized.length) {
+    throw new Error('AI 沒有產出可用建議，請再試一次。')
   }
 
-  return parsed.filter((item): item is string => typeof item === 'string').slice(0, count)
+  return normalized
 }

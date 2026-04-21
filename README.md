@@ -207,7 +207,6 @@ cp .env.example .env.local
 
 ```bash
 VITE_FIREBASE_API_KEY=你的_firebase_web_api_key
-VITE_GEMINI_API_KEY=你的_gemini_api_key
 VITE_GEMINI_MODEL=gemini-2.5-flash
 ```
 
@@ -238,21 +237,29 @@ service cloud.firestore {
 }
 ```
 
-## Gemini prototype
+## Gemini / AI proxy
 
-目前 Gemini 仍然是 prototype 模式，從前端直接打 API。
+目前 AI 子節點建議已改成經過 Firebase Functions server-side proxy。
 
-功能：
+架構：
 
-- 對單一節點按下 `✨`
-- 根據整張畫布上下文
-- 產生子節點建議
-- 直接新增進畫布
+- Frontend 呼叫 callable function `generateNodeIdeas`
+- Function 端使用 `GEMINI_API_KEY` secret 呼叫 Gemini
+- 前端不再持有 Gemini API key
 
-### 重要提醒
+### 本地開發前置
 
-目前這仍然只適合 prototype / 個人測試。
-如果未來公開部署，Gemini 應移到 Cloud Functions 或其他 server-side proxy。
+1. 安裝前端依賴
+2. 安裝 functions 依賴
+3. 設定 Firebase secret
+
+```bash
+npm install
+cd functions && npm install && cd ..
+npx firebase-tools functions:secrets:set GEMINI_API_KEY
+```
+
+之後可用 emulator 或直接 deploy functions。
 
 另外，若你看到：
 

@@ -75,7 +75,7 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已
 - Firestore rules 補強草案
 - cloud metadata 補強
 - README / docs 與新 checkpoint 保持同步
-- Gemini Cloud Functions 路線草案
+- Gemini Cloud Functions 路線落地與驗證
 
 ## 完成後的收尾
 
