@@ -375,9 +375,8 @@ button {
   z-index: 1;
 }
 
-.flow-node.expanded,
-.flow-node.selected {
-  z-index: 60;
+.flow-node.expanded {
+  z-index: 30;
 }
 
 .flow-node__handle {
