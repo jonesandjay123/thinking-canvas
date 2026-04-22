@@ -207,19 +207,24 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
       <Handle type="target" position={targetPosition} className="flow-node__handle" />
       <Handle type="source" position={sourcePosition} className="flow-node__handle" />
 
-      <div className={`flow-node__bubble flow-node__bubble--${shape}`} style={bubbleStyle} onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}>
+      <div
+        className={`flow-node__bubble flow-node__bubble--${shape} ${isGenerating ? 'flow-node__bubble--generating' : ''}`}
+        style={bubbleStyle}
+        onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}
+      >
+        {isGenerating && <div className="flow-node__generating-ring" aria-hidden="true" />}
         <span className="flow-node__title" style={{ fontSize: `${textScale}px` }}>{draftTitle}</span>
         <div className={`flow-node__actions flow-node__actions--${controlDock}`}>
           <button className="icon-button nodrag nopan" onClick={() => data.onAddChild(thoughtNode.id)} title="新增子節點" disabled={!canEdit}>
             +
           </button>
           <button
-            className="icon-button secondary nodrag nopan"
+            className={`icon-button secondary nodrag nopan ${isGenerating ? 'icon-button--generating' : ''}`}
             onClick={() => data.onGenerate(thoughtNode.id)}
             disabled={!canEdit || !geminiEnabled || isGenerating}
             title={geminiEnabled ? '使用 AI 產生子節點建議' : 'AI 功能暫時不可用'}
           >
-            {isGenerating ? '…' : '✨'}
+            {isGenerating ? '✦' : '✨'}
           </button>
           {thoughtNode.parentId && (
             <button className="icon-button danger nodrag nopan" onClick={() => data.onDelete(thoughtNode.id)} title="刪除節點" disabled={!canEdit}>
