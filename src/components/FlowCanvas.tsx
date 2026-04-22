@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import dagre from 'dagre'
 import {
   Background,
   BackgroundVariant,
@@ -76,49 +77,62 @@ function getFlowAxis(direction: FlowDirection) {
   }
 }
 
-function layoutDocument(document: CanvasDocument, direction: FlowDirection): CanvasDocument {
-  const axis = getFlowAxis(direction)
-  const nextNodes = { ...document.nodes }
-  const levelMap = new Map<string, number>()
-
-  const walk = (nodeId: string, depth: number) => {
-    levelMap.set(nodeId, depth)
-    nextNodes[nodeId]?.childIds.forEach((childId) => walk(childId, depth + 1))
-  }
-
-  walk(document.canvas.rootNodeId, 0)
-
-  const grouped = new Map<number, string[]>()
-  Array.from(levelMap.entries()).forEach(([nodeId, depth]) => {
-    const existing = grouped.get(depth) ?? []
-    existing.push(nodeId)
-    grouped.set(depth, existing)
+function layoutDocument(document: CanvasDocument, direction: FlowDirection, options?: { nodeSize?: NodeSize; nodeShape?: NodeShape }): CanvasDocument {
+  const graph = new dagre.graphlib.Graph()
+  graph.setDefaultEdgeLabel(() => ({}))
+  graph.setGraph({
+    rankdir: direction,
+    ranksep: direction === 'TB' || direction === 'BT' ? 120 : 140,
+    nodesep: direction === 'TB' || direction === 'BT' ? 56 : 72,
+    marginx: 40,
+    marginy: 40,
   })
 
-  grouped.forEach((nodeIds, depth) => {
-    nodeIds.forEach((nodeId, index) => {
-      const offset = index - (nodeIds.length - 1) / 2
-      const node = nextNodes[nodeId]
-      if (!node) return
+  const getNodeDimensions = () => {
+    const shape = options?.nodeShape ?? 'circle'
+    const size = options?.nodeSize ?? 120
 
-      if (direction === 'TB' || direction === 'BT') {
-        nextNodes[nodeId] = {
-          ...node,
-          position: {
-            x: offset * 260,
-            y: depth * axis.y,
-          },
-        }
-      } else {
-        nextNodes[nodeId] = {
-          ...node,
-          position: {
-            x: depth * axis.x,
-            y: offset * 220,
-          },
-        }
+    switch (shape) {
+      case 'ellipse':
+        return { width: size + 48, height: size }
+      case 'rounded-rect':
+        return { width: size + 56, height: Math.max(120, size - 24) }
+      case 'rounded-square':
+        return { width: size, height: size }
+      case 'circle':
+      default:
+        return { width: size, height: size }
+    }
+  }
+
+  Object.values(document.nodes).forEach((node) => {
+    const { width, height } = getNodeDimensions()
+    graph.setNode(node.id, { width, height })
+  })
+
+  Object.values(document.nodes).forEach((node) => {
+    node.childIds.forEach((childId) => {
+      if (document.nodes[childId]) {
+        graph.setEdge(node.id, childId)
       }
     })
+  })
+
+  dagre.layout(graph)
+
+  const nextNodes = { ...document.nodes }
+  Object.keys(nextNodes).forEach((nodeId) => {
+    const positioned = graph.node(nodeId)
+    const node = nextNodes[nodeId]
+    if (!positioned || !node) return
+
+    nextNodes[nodeId] = {
+      ...node,
+      position: {
+        x: positioned.x - positioned.width / 2,
+        y: positioned.y - positioned.height / 2,
+      },
+    }
   })
 
   return {
@@ -439,8 +453,8 @@ function FlowCanvasInner({
     if (lastFlowDirectionRef.current === flowDirection) return
     lastFlowDirectionRef.current = flowDirection
 
-    persistDocument(layoutDocument(document, flowDirection))
-  }, [canEdit, document, flowDirection, persistDocument])
+    persistDocument(layoutDocument(document, flowDirection, { nodeShape, nodeSize }))
+  }, [canEdit, document, flowDirection, nodeShape, nodeSize, persistDocument])
 
   const handleGenerate = useCallback(
     async (nodeId: string) => {
