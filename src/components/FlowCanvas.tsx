@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import ELK from 'elkjs/lib/elk.bundled.js'
 import {
   Background,
   BackgroundVariant,
@@ -77,8 +76,6 @@ function getFlowAxis(direction: FlowDirection) {
   }
 }
 
-const elk = new ELK()
-
 function getNodeDimensions(options?: { nodeSize?: NodeSize; nodeShape?: NodeShape }) {
   const shape = options?.nodeShape ?? 'circle'
   const size = options?.nodeSize ?? 120
@@ -96,51 +93,70 @@ function getNodeDimensions(options?: { nodeSize?: NodeSize; nodeShape?: NodeShap
   }
 }
 
-async function layoutDocument(document: CanvasDocument, direction: FlowDirection, options?: { nodeSize?: NodeSize; nodeShape?: NodeShape }): Promise<CanvasDocument> {
+function layoutDocument(document: CanvasDocument, direction: FlowDirection, options?: { nodeSize?: NodeSize; nodeShape?: NodeShape }): CanvasDocument {
   const { width, height } = getNodeDimensions(options)
+  const rootId = document.canvas.rootNodeId
+  const nextNodes = { ...document.nodes }
+  const subtreeSpan = new Map<string, number>()
+  const siblingGap = direction === 'TB' || direction === 'BT' ? Math.max(width * 0.45, 70) : Math.max(height * 0.4, 60)
+  const levelGap = direction === 'TB' || direction === 'BT' ? Math.max(height + 110, 180) : Math.max(width + 120, 220)
 
-  const elkGraph = {
-    id: 'root',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      'elk.direction': direction === 'TB' ? 'DOWN' : direction === 'BT' ? 'UP' : direction === 'LR' ? 'RIGHT' : 'LEFT',
-      'elk.spacing.nodeNode': '60',
-      'elk.layered.spacing.nodeNodeBetweenLayers': direction === 'TB' || direction === 'BT' ? '120' : '160',
-      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-      'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-      'elk.padding': '[top=40,left=40,bottom=40,right=40]',
-    },
-    children: Object.values(document.nodes).map((node) => ({
-      id: node.id,
-      width,
-      height,
-    })),
-    edges: Object.values(document.nodes).flatMap((node) =>
-      node.childIds
-        .filter((childId) => Boolean(document.nodes[childId]))
-        .map((childId) => ({
-          id: `${node.id}-${childId}`,
-          sources: [node.id],
-          targets: [childId],
-        })),
-    ),
+  const measureSpan = (nodeId: string): number => {
+    const node = document.nodes[nodeId]
+    if (!node) return width
+    if (!node.childIds.length) {
+      subtreeSpan.set(nodeId, width)
+      return width
+    }
+
+    const childSpans = node.childIds
+      .map((childId) => measureSpan(childId))
+      .filter((span) => Number.isFinite(span) && span > 0)
+
+    const totalChildrenSpan = childSpans.reduce((sum, span) => sum + span, 0) + Math.max(0, childSpans.length - 1) * siblingGap
+    const ownSpan = Math.max(width, totalChildrenSpan)
+    subtreeSpan.set(nodeId, ownSpan)
+    return ownSpan
   }
 
-  const laidOut = await elk.layout(elkGraph)
-  const nextNodes = { ...document.nodes }
-
-  laidOut.children?.forEach((child) => {
-    const node = nextNodes[child.id]
+  const layoutSubtree = (nodeId: string, depth: number, center: number) => {
+    const node = nextNodes[nodeId]
     if (!node) return
 
-    nextNodes[child.id] = {
-      ...node,
-      position: {
-        x: child.x ?? node.position.x,
-        y: child.y ?? node.position.y,
-      },
+    if (direction === 'TB' || direction === 'BT') {
+      nextNodes[nodeId] = {
+        ...node,
+        position: {
+          x: center - width / 2,
+          y: depth * (direction === 'BT' ? -levelGap : levelGap),
+        },
+      }
+    } else {
+      nextNodes[nodeId] = {
+        ...node,
+        position: {
+          x: depth * (direction === 'RL' ? -levelGap : levelGap),
+          y: center - height / 2,
+        },
+      }
     }
-  })
+
+    if (!node.childIds.length) return
+
+    const spans = node.childIds.map((childId) => subtreeSpan.get(childId) ?? width)
+    const totalSpan = spans.reduce((sum, span) => sum + span, 0) + Math.max(0, spans.length - 1) * siblingGap
+    let cursor = center - totalSpan / 2
+
+    node.childIds.forEach((childId, index) => {
+      const childSpan = spans[index]
+      const childCenter = cursor + childSpan / 2
+      layoutSubtree(childId, depth + 1, childCenter)
+      cursor += childSpan + siblingGap
+    })
+  }
+
+  measureSpan(rootId)
+  layoutSubtree(rootId, 0, 0)
 
   return {
     ...document,
@@ -460,9 +476,7 @@ function FlowCanvasInner({
     if (lastFlowDirectionRef.current === flowDirection) return
     lastFlowDirectionRef.current = flowDirection
 
-    void layoutDocument(document, flowDirection, { nodeShape, nodeSize }).then((nextDocument) => {
-      persistDocument(nextDocument)
-    })
+    persistDocument(layoutDocument(document, flowDirection, { nodeShape, nodeSize }))
   }, [canEdit, document, flowDirection, nodeShape, nodeSize, persistDocument])
 
   const handleGenerate = useCallback(
