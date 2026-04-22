@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import ELK from 'elkjs/lib/elk.bundled.js'
+import dagre from 'dagre'
 import {
   Background,
   BackgroundVariant,
@@ -77,67 +77,60 @@ function getFlowAxis(direction: FlowDirection) {
   }
 }
 
-const elk = new ELK()
+function layoutDocument(document: CanvasDocument, direction: FlowDirection, options?: { nodeSize?: NodeSize; nodeShape?: NodeShape }): CanvasDocument {
+  const graph = new dagre.graphlib.Graph()
+  graph.setDefaultEdgeLabel(() => ({}))
+  graph.setGraph({
+    rankdir: direction,
+    ranksep: direction === 'TB' || direction === 'BT' ? 120 : 140,
+    nodesep: direction === 'TB' || direction === 'BT' ? 56 : 72,
+    marginx: 40,
+    marginy: 40,
+  })
 
-function getNodeDimensions(options?: { nodeSize?: NodeSize; nodeShape?: NodeShape }) {
-  const shape = options?.nodeShape ?? 'circle'
-  const size = options?.nodeSize ?? 120
+  const getNodeDimensions = () => {
+    const shape = options?.nodeShape ?? 'circle'
+    const size = options?.nodeSize ?? 120
 
-  switch (shape) {
-    case 'ellipse':
-      return { width: size + 48, height: size }
-    case 'rounded-rect':
-      return { width: size + 56, height: Math.max(120, size - 24) }
-    case 'rounded-square':
-      return { width: size, height: size }
-    case 'circle':
-    default:
-      return { width: size, height: size }
-  }
-}
-
-async function layoutDocument(document: CanvasDocument, direction: FlowDirection, options?: { nodeSize?: NodeSize; nodeShape?: NodeShape }): Promise<CanvasDocument> {
-  const { width, height } = getNodeDimensions(options)
-
-  const elkGraph = {
-    id: 'root',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      'elk.direction': direction === 'TB' ? 'DOWN' : direction === 'BT' ? 'UP' : direction === 'LR' ? 'RIGHT' : 'LEFT',
-      'elk.spacing.nodeNode': '60',
-      'elk.layered.spacing.nodeNodeBetweenLayers': direction === 'TB' || direction === 'BT' ? '120' : '160',
-      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-      'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-      'elk.padding': '[top=40,left=40,bottom=40,right=40]',
-    },
-    children: Object.values(document.nodes).map((node) => ({
-      id: node.id,
-      width,
-      height,
-    })),
-    edges: Object.values(document.nodes).flatMap((node) =>
-      node.childIds
-        .filter((childId) => Boolean(document.nodes[childId]))
-        .map((childId) => ({
-          id: `${node.id}-${childId}`,
-          sources: [node.id],
-          targets: [childId],
-        })),
-    ),
+    switch (shape) {
+      case 'ellipse':
+        return { width: size + 48, height: size }
+      case 'rounded-rect':
+        return { width: size + 56, height: Math.max(120, size - 24) }
+      case 'rounded-square':
+        return { width: size, height: size }
+      case 'circle':
+      default:
+        return { width: size, height: size }
+    }
   }
 
-  const laidOut = await elk.layout(elkGraph)
+  Object.values(document.nodes).forEach((node) => {
+    const { width, height } = getNodeDimensions()
+    graph.setNode(node.id, { width, height })
+  })
+
+  Object.values(document.nodes).forEach((node) => {
+    node.childIds.forEach((childId) => {
+      if (document.nodes[childId]) {
+        graph.setEdge(node.id, childId)
+      }
+    })
+  })
+
+  dagre.layout(graph)
+
   const nextNodes = { ...document.nodes }
+  Object.keys(nextNodes).forEach((nodeId) => {
+    const positioned = graph.node(nodeId)
+    const node = nextNodes[nodeId]
+    if (!positioned || !node) return
 
-  laidOut.children?.forEach((child) => {
-    const node = nextNodes[child.id]
-    if (!node) return
-
-    nextNodes[child.id] = {
+    nextNodes[nodeId] = {
       ...node,
       position: {
-        x: child.x ?? node.position.x,
-        y: child.y ?? node.position.y,
+        x: positioned.x - positioned.width / 2,
+        y: positioned.y - positioned.height / 2,
       },
     }
   })
@@ -460,9 +453,7 @@ function FlowCanvasInner({
     if (lastFlowDirectionRef.current === flowDirection) return
     lastFlowDirectionRef.current = flowDirection
 
-    void layoutDocument(document, flowDirection, { nodeShape, nodeSize }).then((nextDocument) => {
-      persistDocument(nextDocument)
-    })
+    persistDocument(layoutDocument(document, flowDirection, { nodeShape, nodeSize }))
   }, [canEdit, document, flowDirection, nodeShape, nodeSize, persistDocument])
 
   const handleGenerate = useCallback(
