@@ -375,6 +375,11 @@ button {
   z-index: 1;
 }
 
+.flow-node.expanded,
+.flow-node.selected {
+  z-index: 60;
+}
+
 .flow-node__handle {
   pointer-events: none;
 }
@@ -517,17 +522,14 @@ button {
 }
 
 .flow-node__details {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
   width: 280px;
   padding: 18px 14px 14px;
   border-radius: 18px;
-}
-
-.flow-node__details--portal {
-  position: fixed;
-  left: var(--details-left, 0px);
-  top: var(--details-top, 0px);
-  transform: translateX(-50%);
-  z-index: 9999;
+  z-index: 40;
 }
 
 .theme-dark .flow-node__details {

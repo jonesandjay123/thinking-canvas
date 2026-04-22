@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -161,8 +161,6 @@ function FlowThoughtNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
   const { thoughtNode, controlDock, sourcePosition, targetPosition, textScale, shape, size, theme, canEdit, geminiEnabled, isGenerating } = data
   const [draftTitle, setDraftTitle] = useState(thoughtNode.title)
   const [draftContent, setDraftContent] = useState(thoughtNode.content)
-  const bubbleRef = useRef<HTMLDivElement | null>(null)
-  const detailsRef = useRef<HTMLDivElement | null>(null)
   const debounceRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -202,21 +200,6 @@ function FlowThoughtNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
     }
   }
 
-  useLayoutEffect(() => {
-    const detailsElement = detailsRef.current
-    const bubbleElement = bubbleRef.current
-    if (!thoughtNode.isExpanded || !detailsElement || !bubbleElement) return
-
-    const viewport = bubbleElement.closest('.react-flow__viewport') as HTMLElement | null
-    if (!viewport) return
-
-    const bubbleRect = bubbleElement.getBoundingClientRect()
-    const viewportRect = viewport.getBoundingClientRect()
-
-    detailsElement.style.setProperty('--details-left', `${bubbleRect.left - viewportRect.left + bubbleRect.width / 2}px`)
-    detailsElement.style.setProperty('--details-top', `${bubbleRect.bottom - viewportRect.top + 14}px`)
-  }, [thoughtNode.isExpanded, draftTitle, draftContent, shape, size, textScale])
-
   const bubbleStyle = getBubbleStyle(shape, size)
 
   return (
@@ -225,7 +208,6 @@ function FlowThoughtNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
       <Handle type="source" position={sourcePosition} className="flow-node__handle" />
 
       <div
-        ref={bubbleRef}
         className={`flow-node__bubble flow-node__bubble--${shape} ${isGenerating ? 'flow-node__bubble--generating' : ''}`}
         style={bubbleStyle}
         onDoubleClick={() => data.onToggleExpand(thoughtNode.id)}
@@ -253,7 +235,7 @@ function FlowThoughtNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
       </div>
 
       {thoughtNode.isExpanded && (
-        <div ref={detailsRef} className="flow-node__details flow-node__details--portal nodrag nopan">
+        <div className="flow-node__details nodrag nopan">
           <button className="collapse-chip" onClick={() => data.onToggleExpand(thoughtNode.id)} title="收合節點">
             ⌃
           </button>
