@@ -22,12 +22,21 @@ type GenerateNodeIdeasResponse = {
 const generateNodeIdeasCallable = httpsCallable<GenerateNodeIdeasRequest, GenerateNodeIdeasResponse>(functions, 'generateNodeIdeas')
 
 function normalizeHttpsCallableError(error: unknown): Error {
-  if (error instanceof Error) {
-    return error
+  if (typeof error === 'object' && error !== null) {
+    const maybeMessage = 'message' in error ? (error as { message?: unknown }).message : undefined
+    const maybeCode = 'code' in error ? (error as { code?: unknown }).code : undefined
+
+    if (typeof maybeMessage === 'string') {
+      return new Error(maybeMessage)
+    }
+
+    if (maybeCode === 'functions/unavailable') {
+      return new Error('Gemini 目前較忙，請稍後再試。')
+    }
   }
 
-  if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
-    return new Error((error as { message: string }).message)
+  if (error instanceof Error) {
+    return error
   }
 
   return new Error('AI 呼叫失敗。')

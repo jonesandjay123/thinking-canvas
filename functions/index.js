@@ -8,6 +8,8 @@ admin.initializeApp()
 
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 const DEFAULT_MODEL = 'gemini-2.5-flash'
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 503])
+const MAX_RETRY_ATTEMPTS = 3
 
 function normalizeNodeContext(input) {
   if (!input || typeof input !== 'object') {
@@ -79,6 +81,74 @@ function parseSuggestions(rawText, count) {
   return parsed.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean).slice(0, count)
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function getErrorStatusCode(error) {
+  if (!error || typeof error !== 'object') return null
+  if (typeof error.status === 'number') return error.status
+  if (typeof error.code === 'number') return error.code
+  if (error.error && typeof error.error === 'object') {
+    if (typeof error.error.code === 'number') return error.error.code
+  }
+  return null
+}
+
+function isRetryableGeminiError(error) {
+  const status = getErrorStatusCode(error)
+  return status !== null && RETRYABLE_STATUS_CODES.has(status)
+}
+
+function toClientFacingGeminiError(error) {
+  const status = getErrorStatusCode(error)
+
+  if (status === 429 || status === 503) {
+    return new HttpsError('unavailable', 'Gemini 目前較忙，請稍後再試。')
+  }
+
+  return new HttpsError('internal', 'Gemini 產生建議失敗，請稍後再試。')
+}
+
+async function generateSuggestionsWithRetry(ai, context) {
+  let lastError = null
+
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await ai.models.generateContent({
+        model: context.model,
+        contents: buildPrompt(context),
+      })
+
+      const rawText = response.text || ''
+      const suggestions = parseSuggestions(rawText, context.count)
+
+      return {
+        suggestions,
+        attempts: attempt,
+      }
+    } catch (error) {
+      lastError = error
+      const retryable = isRetryableGeminiError(error)
+
+      logger.error('generateNodeIdeas Gemini attempt failed', {
+        attempt,
+        retryable,
+        status: getErrorStatusCode(error),
+        message: error instanceof Error ? error.message : String(error),
+      })
+
+      if (!retryable || attempt === MAX_RETRY_ATTEMPTS) {
+        break
+      }
+
+      await sleep(600 * 2 ** (attempt - 1))
+    }
+  }
+
+  throw lastError
+}
+
 exports.generateNodeIdeas = onCall(
   {
     region: 'us-central1',
@@ -97,24 +167,19 @@ exports.generateNodeIdeas = onCall(
 
     try {
       const ai = new GoogleGenAI({ apiKey })
-      const response = await ai.models.generateContent({
-        model: context.model,
-        contents: buildPrompt(context),
-      })
-
-      const rawText = response.text || ''
-      const suggestions = parseSuggestions(rawText, context.count)
+      const { suggestions, attempts } = await generateSuggestionsWithRetry(ai, context)
 
       return {
         suggestions,
         model: context.model,
+        attempts,
       }
     } catch (error) {
       logger.error('generateNodeIdeas failed', error)
       if (error instanceof HttpsError) {
         throw error
       }
-      throw new HttpsError('internal', 'Gemini 產生建議失敗，請稍後再試。')
+      throw toClientFacingGeminiError(error)
     }
   },
 )
