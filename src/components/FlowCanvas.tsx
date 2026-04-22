@@ -157,7 +157,7 @@ function getBubbleStyle(shape: NodeShape, size: NodeSize) {
   }
 }
 
-function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
+function FlowThoughtNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
   const { thoughtNode, controlDock, sourcePosition, targetPosition, textScale, shape, size, theme, canEdit, geminiEnabled, isGenerating } = data
   const [draftTitle, setDraftTitle] = useState(thoughtNode.title)
   const [draftContent, setDraftContent] = useState(thoughtNode.content)
@@ -203,7 +203,7 @@ function FlowThoughtNode({ data }: NodeProps<Node<FlowNodeData>>) {
   const bubbleStyle = getBubbleStyle(shape, size)
 
   return (
-    <div className={`flow-node theme-${theme} ${thoughtNode.isExpanded ? 'expanded' : 'compact'}`} style={{ width: bubbleStyle.width }}>
+    <div className={`flow-node theme-${theme} ${thoughtNode.isExpanded ? 'expanded' : 'compact'} ${selected ? 'selected' : ''}`} style={{ width: bubbleStyle.width }}>
       <Handle type="target" position={targetPosition} className="flow-node__handle" />
       <Handle type="source" position={sourcePosition} className="flow-node__handle" />
 
