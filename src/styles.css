@@ -363,6 +363,7 @@ button {
 }
 
 .flow-node {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -370,6 +371,7 @@ button {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
+  overflow: visible;
 }
 
 .flow-node__handle {
@@ -514,10 +516,14 @@ button {
 }
 
 .flow-node__details {
-  position: relative;
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
   width: 280px;
   padding: 18px 14px 14px;
   border-radius: 18px;
+  z-index: 8;
 }
 
 .theme-dark .flow-node__details {
