@@ -212,6 +212,20 @@ VITE_GEMINI_MODEL=gemini-2.5-flash
 # VITE_USE_FUNCTIONS_EMULATOR=true
 ```
 
+如果要讓 Jarvis 在本機直接用 Firebase SDK 讀寫 thinking-canvas Firestore，可額外在 *本機自己的* `.env.local` 放：
+
+```bash
+TC_EMAIL=jarvis.mac.ai@gmail.com
+TC_PASSWORD=你的_Jarvis_帳號密碼
+TC_OWNER_UID=Jones_的_Firebase_Auth_UID
+TC_CANVAS_ID=main
+```
+
+注意：
+- 這些值只應放在 Jarvis Mac mini 本機的 `.env.local`
+- 不要 commit 真實密碼
+- repo 的 `.env.example` 只保留欄位名稱與示意值
+
 ## Firebase 設定
 
 目前 Firebase client config 已改成走 Vite env：
@@ -238,6 +252,28 @@ service cloud.firestore {
   }
 }
 ```
+
+如果要讓 Jarvis 專屬帳號也能直接用 Firebase SDK 協作同一份 canvas，建議在早期先採用 *owner uid + 固定 Jarvis uid* 白名單，而不是開放給所有登入者：
+
+```js
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/canvases/{canvasId} {
+      allow read, write: if request.auth != null
+        && (
+          request.auth.uid == userId ||
+          request.auth.uid == "JARVIS_UID"
+        );
+    }
+  }
+}
+```
+
+重點：
+- `userId` 是 Firestore path 裡的 owner Firebase Auth uid，不是 email
+- `JARVIS_UID` 要替換成 `jarvis.mac.ai@gmail.com` 實際登入 thinking-canvas 後得到的 Firebase Auth uid
+- 這樣未來其他登入者即使存在 Firebase Auth，也不會自動取得寫入權限
 
 ## Gemini / AI proxy
 
@@ -280,6 +316,54 @@ npx firebase-tools deploy --only functions --project thinking-canvas
 ```
 
 這通常是 Google 端暫時不可用，不一定是 app 本身壞掉。
+
+## Repo scripts for Jarvis Firebase access
+
+當 Firestore rules 已允許 *owner uid + Jarvis uid* 後，Jarvis 可以直接用 repo 內的小腳本進行 read / write 驗證。
+
+### 讀取並搜尋 path
+
+```bash
+node scripts/inspect-canvas.mjs 秋葉原
+```
+
+用途：
+- 用 `TC_EMAIL` / `TC_PASSWORD` 登入 Firebase Auth
+- 讀取 `users/{TC_OWNER_UID}/canvases/{TC_CANVAS_ID}`
+- 搜尋標題或內容包含指定關鍵字的節點
+- 印出 target node 與完整 ancestor path
+
+### 更新單一 node
+
+```bash
+node scripts/update-node.mjs \
+  --node <nodeId> \
+  --title "新的標題" \
+  --content "新的內容"
+```
+
+也可只改其中一個欄位：
+
+```bash
+node scripts/update-node.mjs --node <nodeId> --content "只更新內容"
+```
+
+這支腳本會：
+- 以 Jarvis 帳號登入 Firebase Auth
+- 讀取 owner canvas
+- 只更新指定 node 的 `title` / `content`
+- 同步更新 node 與 canvas 的 `updatedAt`
+
+### 為什麼不是用 firebase-tools
+
+因為這條工作流的核心不是 Firebase CLI，而是：
+- Node script
+- Firebase client SDK
+- Firebase Auth sign-in
+- Firestore rules
+
+`firebase-tools` 主要負責 project / deploy / console-oriented CLI 操作；
+真正的 repo 內資料讀寫，是透過 SDK 完成。
 
 ## 專案結構
 

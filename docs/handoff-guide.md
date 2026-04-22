@@ -78,6 +78,49 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已
 - README / docs 與新 checkpoint 保持同步
 - Gemini Cloud Functions 已落地，下一步改成 Hosting / production 收尾
 
+## 2026-04-22 checkpoint：Jarvis Firebase access
+
+這次已補上一個很重要的實務方向：
+
+- `thinking-canvas` 未來若要讓 Jarvis 直接用 Firebase SDK 讀寫 Firestore
+- 不應把 rules 開成像 `trip-planner` 那樣 `allow read, write: if true`
+- 現階段最穩的做法是：*owner uid + 固定 Jarvis uid* 白名單
+
+建議規則形狀：
+
+```js
+match /users/{userId}/canvases/{canvasId} {
+  allow read, write: if request.auth != null
+    && (
+      request.auth.uid == userId ||
+      request.auth.uid == "JARVIS_UID"
+    );
+}
+```
+
+此外，repo 內已新增可重用的小腳本：
+
+- `scripts/inspect-canvas.mjs`
+  - 以 Firebase client SDK + email/password 登入
+  - 讀取 owner canvas
+  - 搜尋關鍵字並印出完整 path
+- `scripts/update-node.mjs`
+  - 更新指定 node 的 `title` / `content`
+
+相關本機 env：
+
+```bash
+TC_EMAIL=jarvis.mac.ai@gmail.com
+TC_PASSWORD=...
+TC_OWNER_UID=...
+TC_CANVAS_ID=main
+```
+
+注意：
+- 這些值只應存在 Jarvis Mac mini 本機 `.env.local`
+- 不進 git
+- `firebase-tools` 不是這條資料讀寫鏈路的核心；真正的鏈路是 Node script + Firebase client SDK + Firebase Auth + Firestore rules
+
 ## 完成後的收尾
 
 每完成一個可保存階段後：
