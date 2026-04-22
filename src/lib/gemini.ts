@@ -4,11 +4,18 @@ import type { CanvasDocument, ThoughtNode } from '../types/canvas'
 
 const model = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash'
 
+type ContextSnippet = {
+  title: string
+  content: string
+}
+
 type GenerateNodeIdeasRequest = {
   title: string
   content: string
   path: string[]
   existingChildren: string[]
+  siblingNodes: ContextSnippet[]
+  parentNode: ContextSnippet | null
   treeContext: string
   count: number
   model: string
@@ -69,6 +76,26 @@ function buildNodePath(document: CanvasDocument, node: ThoughtNode): string[] {
   return path
 }
 
+function toContextSnippet(node: ThoughtNode | undefined): ContextSnippet | null {
+  if (!node) return null
+  return {
+    title: node.title,
+    content: node.content || '',
+  }
+}
+
+function buildSiblingContext(document: CanvasDocument, node: ThoughtNode): ContextSnippet[] {
+  if (!node.parentId) return []
+
+  const parent = document.nodes[node.parentId]
+  if (!parent) return []
+
+  return parent.childIds
+    .filter((childId) => childId !== node.id)
+    .map((childId) => toContextSnippet(document.nodes[childId]))
+    .filter((item): item is ContextSnippet => Boolean(item))
+}
+
 export function geminiReady(): boolean {
   return true
 }
@@ -86,6 +113,8 @@ export async function generateChildSuggestions(
       existingChildren: node.childIds
         .map((childId) => document.nodes[childId]?.title)
         .filter((title): title is string => Boolean(title)),
+      siblingNodes: buildSiblingContext(document, node),
+      parentNode: node.parentId ? toContextSnippet(document.nodes[node.parentId]) : null,
       treeContext: buildTreeContext(document),
       count,
       model,

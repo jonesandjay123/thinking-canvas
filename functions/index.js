@@ -23,6 +23,22 @@ function normalizeNodeContext(input) {
   const existingChildren = Array.isArray(input.existingChildren)
     ? input.existingChildren.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
     : []
+  const siblingNodes = Array.isArray(input.siblingNodes)
+    ? input.siblingNodes
+        .filter((item) => item && typeof item === 'object')
+        .map((item) => ({
+          title: typeof item.title === 'string' ? item.title.trim() : '',
+          content: typeof item.content === 'string' ? item.content.trim() : '',
+        }))
+        .filter((item) => item.title)
+        .slice(0, 12)
+    : []
+  const parentNode = input.parentNode && typeof input.parentNode === 'object'
+    ? {
+        title: typeof input.parentNode.title === 'string' ? input.parentNode.title.trim() : '',
+        content: typeof input.parentNode.content === 'string' ? input.parentNode.content.trim() : '',
+      }
+    : null
   const treeContext = typeof input.treeContext === 'string' ? input.treeContext.trim() : ''
   const model = typeof input.model === 'string' && input.model.trim() ? input.model.trim() : DEFAULT_MODEL
 
@@ -36,12 +52,22 @@ function normalizeNodeContext(input) {
     content,
     path,
     existingChildren,
+    siblingNodes,
+    parentNode: parentNode && parentNode.title ? parentNode : null,
     treeContext,
     model,
   }
 }
 
 function buildPrompt(context) {
+  const siblingText = context.siblingNodes.length
+    ? context.siblingNodes.map((item, index) => `${index + 1}. ${item.title}${item.content ? `: ${item.content}` : ''}`).join('\n')
+    : '（無）'
+
+  const parentText = context.parentNode
+    ? `${context.parentNode.title}${context.parentNode.content ? `: ${context.parentNode.content}` : ''}`
+    : '（無）'
+
   return `你是一個協助發散思考的助手。
 
 目前整張思考畫布如下：
@@ -49,16 +75,20 @@ ${context.treeContext || '（無完整畫布內容）'}
 
 現在要展開的節點是：${context.title}
 節點補充內容：${context.content || '（無）'}
+父節點：${parentText}
 從 root 到目前節點的路徑：${context.path.join(' → ') || context.title}
 目前已存在的子節點：${context.existingChildren.join('、') || '（無）'}
+同層 sibling 節點：
+${siblingText}
 
 請根據整體脈絡，為這個節點提供 ${context.count} 個適合新增的子節點標題。
 要求：
 1. 使用繁體中文
 2. 不要和現有子節點重複
-3. 每個建議都要簡潔，適合直接當成節點標題
-4. 回傳純 JSON array，例如：["方向一", "方向二"]
-5. 不要回傳任何額外說明文字。`
+3. 盡量避免和 sibling 節點語意重複，並延續目前畫布的分類粒度與語氣
+4. 每個建議都要簡潔，適合直接當成節點標題
+5. 回傳純 JSON array，例如：["方向一", "方向二"]
+6. 不要回傳任何額外說明文字。`
 }
 
 function parseSuggestions(rawText, count) {
