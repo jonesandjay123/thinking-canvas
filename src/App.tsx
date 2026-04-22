@@ -64,11 +64,13 @@ function App() {
   const [statusTone, setStatusTone] = useState<'neutral' | 'success' | 'error'>('neutral')
   const [cloudBusy, setCloudBusy] = useState<'save' | 'load' | null>(null)
   const [autosaveState, setAutosaveState] = useState<AutosaveState>('idle')
+  const [dataSourceLabel, setDataSourceLabel] = useState<'local' | 'cloud' | 'fallback'>('local')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const autosaveTimerRef = useRef<number | null>(null)
   const lastSavedSignatureRef = useRef<string | null>(null)
   const suppressNextAutosaveRef = useRef(false)
   const latestSaveSeqRef = useRef(0)
+  const attemptedInitialCloudLoadRef = useRef(false)
   const isOwner = store.user?.email === OWNER_EMAIL
   const canEdit = !store.authLoading && isOwner
 
@@ -79,6 +81,10 @@ function App() {
   useEffect(() => {
     const unsubscribe = subscribeToAuthState((user) => {
       setAuthState({ loading: false, user })
+
+      if (!user) {
+        attemptedInitialCloudLoadRef.current = false
+      }
 
       if (import.meta.env.DEV) {
         console.debug('[auth state]', {
@@ -236,33 +242,56 @@ function App() {
     }
   }
 
-  const handleCloudLoad = async () => {
+  const handleCloudLoad = useCallback(async (options?: { silent?: boolean; reason?: 'manual' | 'initial' }) => {
     try {
       setCloudBusy('load')
       if (import.meta.env.DEV) {
         console.debug('[cloud load:start]', {
           canvasId: store.document.canvas.id,
           localNodeCount: Object.keys(store.document.nodes).length,
+          reason: options?.reason ?? 'manual',
         })
       }
       const loaded = await store.loadFromCloud()
       if (!loaded) {
         setAutosaveState('idle')
-        setStatusMessage('雲端尚未有這張 canvas 的存檔，已保留目前本地畫布。')
-        setStatusTone('neutral')
-        return
+        setDataSourceLabel('fallback')
+        if (!options?.silent) {
+          setStatusMessage('雲端尚未有這張 canvas 的存檔，已保留目前本地畫布。')
+          setStatusTone('neutral')
+        }
+        return false
       }
       suppressNextAutosaveRef.current = true
       setAutosaveState('idle')
-      setStatusMessage('已從 Firestore 載入，並覆蓋本地狀態。')
-      setStatusTone('success')
+      setDataSourceLabel('cloud')
+      if (!options?.silent) {
+        setStatusMessage(options?.reason === 'initial' ? '已自動從 Firestore 載入目前 canvas。' : '已從 Firestore 載入，並覆蓋本地狀態。')
+        setStatusTone('success')
+      }
+      return true
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : '雲端載入失敗。')
-      setStatusTone('error')
+      if (!options?.silent) {
+        setStatusMessage(error instanceof Error ? error.message : '雲端載入失敗。')
+        setStatusTone('error')
+      }
+      throw error
     } finally {
       setCloudBusy(null)
     }
-  }
+  }, [store])
+
+  useEffect(() => {
+    if (store.authLoading || !user || !canEdit || attemptedInitialCloudLoadRef.current) {
+      return
+    }
+
+    attemptedInitialCloudLoadRef.current = true
+
+    void handleCloudLoad({ silent: false, reason: 'initial' }).catch(() => {
+      setDataSourceLabel('local')
+    })
+  }, [store.authLoading, user, canEdit, handleCloudLoad])
 
   const handleFlowStatus = useCallback((message: string, tone: 'neutral' | 'success' | 'error') => {
     setStatusMessage(message)
@@ -307,6 +336,9 @@ function App() {
             {autosaveState === 'saved' && 'Saved'}
             {autosaveState === 'error' && 'Autosave failed'}
             {autosaveState === 'idle' && 'Cloud autosave idle'}
+          </p>
+          <p className="sidebar-copy auth-copy">
+            Data source: {dataSourceLabel === 'cloud' ? 'Firestore cloud state' : dataSourceLabel === 'fallback' ? 'local fallback / starter canvas' : 'local browser state'}
           </p>
           {!canEdit && <p className="sidebar-copy auth-copy">目前是唯讀模式，只有 owner 可以新增、刪除、拖曳或編輯節點。</p>}
           <label className="field-label" htmlFor="ai-expand-count">
@@ -411,7 +443,7 @@ function App() {
             <button className="secondary" onClick={handleCloudSave} disabled={!canEdit || cloudBusy !== null}>
               {cloudBusy === 'save' ? '儲存中...' : 'Save to Cloud'}
             </button>
-            <button className="secondary" onClick={handleCloudLoad} disabled={!canEdit || cloudBusy !== null}>
+            <button className="secondary" onClick={() => void handleCloudLoad({ reason: 'manual' })} disabled={!canEdit || cloudBusy !== null}>
               {cloudBusy === 'load' ? '載入中...' : 'Load from Cloud'}
             </button>
           </div>
