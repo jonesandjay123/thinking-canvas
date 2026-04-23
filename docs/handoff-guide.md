@@ -7,18 +7,18 @@
 
 ## 專案一句話
 
-Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已經從本地 prototype 進入「本地 + 雲端 + autosave」的早期實用階段。
+Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已經從本地 prototype 進入「本地 + 雲端 + autosave + Jarvis 可受控寫入」的早期實用階段。
 
 ## 當前最重要目標
 
-現在最重要的目標已經不是「接上 Firebase」本身，因為最小 Firebase / Firestore persistence 已經完成。
+現在最重要的目標已經不是「接上 Firebase」本身，因為最小 Firebase / Firestore persistence 已經完成，而且 Jarvis 的最小寫入鏈路也已打通。
 
 下一位接手 agent 的主要目標應該是：
 
-- 穩住 autosave 體驗
-- 補 Firestore rules 與 metadata
+- 穩住目前已打通的 Jarvis write path
+- 補文件與操作邊界，避免擴充失控
 - 完成 Firebase Hosting / production 收尾
-- 再往 multiple canvas 與 AI 體驗優化前進
+- 再往 trip-planner 的同模式複製前進
 
 ## 現在的明確限制
 
@@ -31,6 +31,8 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已
 - version history
 - repository pattern 大重構
 - 過度 UI polish
+- 把 read/query 也急著全部上雲端 function
+- 把 thinking-canvas 長成很多細碎 function
 
 ## 推薦工作順序
 
@@ -68,51 +70,45 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已
 ### 5. 記得這是單人專案
 不要自動帶入多人 SaaS 的假設。除非 Jones 明確要求，不需要為 migration framework、role system、複雜協作做過度設計。
 
-## 目前最理想的下一批輸出
+## 2026-04-23 checkpoint：Jarvis write path 已正式打通
 
-如果你現在要直接開始做，最有價值的是：
+這次最重要的成果不是多一個小腳本，而是 *thinking-canvas 的 Jarvis 寫入架構已換軌成功*。
 
-- autosave UX 小幅優化
-- Firestore rules 補強草案
-- cloud metadata 補強
-- README / docs 與新 checkpoint 保持同步
-- Gemini Cloud Functions 已落地，下一步改成 Hosting / production 收尾
+### 已完成的事情
 
-## 2026-04-22 checkpoint：Jarvis Firebase access
+- 保留原本前端 owner flow
+  - Jones 繼續用 Google Auth + 前端 owner-only 模式操作
+- 移除 Jarvis 對 Firebase Auth Email/Password 的依賴
+  - 這條線已正式退役
+- 改為少量 privileged write functions
+  - `jarvisUpdateNode`
+  - `jarvisCreateChildNode`
+- Jarvis 本地只透過 repo script 呼叫 callable function
+- function 端用 Admin SDK 寫 Firestore
+- 每次 Jarvis 寫入都會補最小 actor metadata
+  - `updatedByType`
+  - `updatedByLabel`
+  - `updatedBySource`
+  - `updatedByOwnerUid`
+  - `updatedByAt`
 
-這次已補上一個很重要的實務方向：
+### 已實測成功的能力
 
-- `thinking-canvas` 未來若要讓 Jarvis 直接用 Firebase SDK 讀寫 Firestore
-- 不應把 rules 開成像 `trip-planner` 那樣 `allow read, write: if true`
-- 現階段最穩的做法是：*owner uid + 固定 Jarvis uid* 白名單
+- 更新 root node 標題成功
+- 新增 child node 成功
+- function response 已可回傳 actor metadata
 
-建議規則形狀：
-
-```js
-match /users/{userId}/canvases/{canvasId} {
-  allow read, write: if request.auth != null
-    && (
-      request.auth.uid == userId ||
-      request.auth.uid == "JARVIS_UID"
-    );
-}
-```
-
-此外，repo 內目前改成：
+### 目前 repo 內對應腳本
 
 - `scripts/update-node.mjs`
-  - 呼叫 `jarvisUpdateNode` callable function
-  - 由 function 端用 Admin SDK 更新指定 node 的 `title` / `content`
-  - 同步補最小 actor metadata（`updatedByType`, `updatedByLabel`, `updatedBySource`）
+  - 呼叫 `jarvisUpdateNode`
 - `scripts/create-child-node.mjs`
-  - 呼叫 `jarvisCreateChildNode` callable function
-  - 由 function 端在指定 parent 下新增 child node
-  - 同步補最小 actor metadata（`updatedByType`, `updatedByLabel`, `updatedBySource`）
+  - 呼叫 `jarvisCreateChildNode`
 - `scripts/inspect-canvas.mjs`
   - 舊的 Email/Password 讀取鏈路已退役
-  - 後續應補 dedicated read/query function
+  - 目前保留為提示腳本，不再當主路徑
 
-相關本機 env：
+### 相關本機 env
 
 ```bash
 TC_OWNER_UID=...
@@ -124,6 +120,16 @@ TC_JARVIS_SHARED_SECRET=...
 - 這些值只應存在 Jarvis Mac mini 本機 `.env.local`
 - 不進 git
 - `firebase-tools` 不是這條資料讀寫鏈路的核心；真正的新鏈路是 Node script + callable function + Admin SDK
+
+## 目前最理想的下一批輸出
+
+如果下一位 agent 要繼續，最有價值的是：
+
+- 把這次 checkpoint 文件保持同步
+- 不要急著再長更多 cloud functions
+- 先把這條模式整理成可複製模板
+- 然後把 *同樣思路* 套到 `trip-planner`
+- Firebase Hosting / production 收尾可後續進行
 
 ## 完成後的收尾
 
