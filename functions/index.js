@@ -242,6 +242,42 @@ function normalizeJarvisUpdateNodeInput(input) {
   }
 }
 
+function createId() {
+  return Math.random().toString(36).slice(2, 10)
+}
+
+function normalizeJarvisCreateChildNodeInput(input) {
+  if (!input || typeof input !== 'object') {
+    throw new HttpsError('invalid-argument', '缺少新增節點參數。')
+  }
+
+  const ownerUid = typeof input.ownerUid === 'string' ? input.ownerUid.trim() : ''
+  const canvasId = typeof input.canvasId === 'string' && input.canvasId.trim() ? input.canvasId.trim() : DEFAULT_CANVAS_ID
+  const parentId = typeof input.parentId === 'string' ? input.parentId.trim() : ''
+  const title = typeof input.title === 'string' && input.title.trim() ? input.title.trim() : 'New Node'
+  const content = typeof input.content === 'string' ? input.content : ''
+  const type = typeof input.type === 'string' && ['root', 'idea', 'project', 'principle', 'note'].includes(input.type)
+    ? input.type
+    : 'note'
+
+  if (!ownerUid) {
+    throw new HttpsError('invalid-argument', '缺少 ownerUid。')
+  }
+
+  if (!parentId) {
+    throw new HttpsError('invalid-argument', '缺少 parentId。')
+  }
+
+  return {
+    ownerUid,
+    canvasId,
+    parentId,
+    title,
+    content,
+    type,
+  }
+}
+
 exports.generateNodeIdeas = onCall(
   {
     region: 'us-central1',
@@ -356,6 +392,105 @@ exports.jarvisUpdateNode = onCall(
         title: updatedNode.title,
         content: updatedNode.content,
       },
+      updatedAt: nowIso,
+    }
+  },
+)
+
+exports.jarvisCreateChildNode = onCall(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    secrets: [JARVIS_SHARED_SECRET],
+  },
+  async (request) => {
+    requireJarvisSecret(request)
+    const input = normalizeJarvisCreateChildNodeInput(request.data)
+    const ref = db.doc(`users/${input.ownerUid}/canvases/${input.canvasId}`)
+    const snapshot = await ref.get()
+
+    if (!snapshot.exists) {
+      throw new HttpsError('not-found', `Canvas 不存在：users/${input.ownerUid}/canvases/${input.canvasId}`)
+    }
+
+    const record = snapshot.data() || {}
+    const document = record.document
+    const nodes = document && document.nodes && typeof document.nodes === 'object' ? document.nodes : null
+
+    if (!document || !document.canvas || !nodes) {
+      throw new HttpsError('failed-precondition', 'Canvas document 結構不合法。')
+    }
+
+    const parent = nodes[input.parentId]
+    if (!parent || typeof parent !== 'object') {
+      throw new HttpsError('not-found', `Parent node 不存在：${input.parentId}`)
+    }
+
+    const nowIso = new Date().toISOString()
+    const childIndex = Array.isArray(parent.childIds) ? parent.childIds.length : 0
+    const id = createId()
+    const newNode = {
+      id,
+      canvasId: document.canvas.id,
+      title: input.title,
+      content: input.content,
+      childIds: [],
+      parentId: input.parentId,
+      links: [],
+      tags: [],
+      type: input.type,
+      position: {
+        x: Number(parent.position?.x || 0) + childIndex * 220 - Math.max(0, childIndex - 1) * 110,
+        y: Number(parent.position?.y || 0) + 220,
+      },
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    }
+
+    const updatedParent = {
+      ...parent,
+      childIds: [...(Array.isArray(parent.childIds) ? parent.childIds : []), id],
+      updatedAt: nowIso,
+    }
+
+    const updatedDocument = {
+      ...document,
+      canvas: {
+        ...document.canvas,
+        updatedAt: nowIso,
+      },
+      nodes: {
+        ...nodes,
+        [input.parentId]: updatedParent,
+        [id]: newNode,
+      },
+    }
+
+    await ref.set(
+      {
+        ...record,
+        title: updatedDocument.canvas.title,
+        document: updatedDocument,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+
+    logger.info('jarvisCreateChildNode success', {
+      ownerUid: input.ownerUid,
+      canvasId: input.canvasId,
+      parentId: input.parentId,
+      nodeId: id,
+      type: input.type,
+    })
+
+    return {
+      ok: true,
+      ownerUid: input.ownerUid,
+      canvasId: input.canvasId,
+      parentId: input.parentId,
+      node: newNode,
       updatedAt: nowIso,
     }
   },

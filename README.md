@@ -307,6 +307,7 @@ npx firebase-tools deploy --only functions --project thinking-canvas
 目前新的策略是：
 - *讀取 / 查詢*：之後補 dedicated backend read/query function
 - *寫入 / 更新*：走 `jarvisUpdateNode` callable function
+- *新增子節點*：走 `jarvisCreateChildNode` callable function
 
 ### 更新單一 node
 
@@ -328,6 +329,22 @@ node scripts/update-node.mjs --node <nodeId> --content "只更新內容"
 - 呼叫 `jarvisUpdateNode` callable function
 - 由 function 端使用 Admin SDK 寫 Firestore
 - 同步更新 node 與 canvas 的 `updatedAt`
+
+### 新增子節點
+
+```bash
+node scripts/create-child-node.mjs \
+  --parent <parentId> \
+  --title "新的子節點" \
+  --content "補充內容" \
+  --type note
+```
+
+這支腳本會：
+- 讀取本機 `.env.local` 的 `TC_OWNER_UID` / `TC_CANVAS_ID` / `TC_JARVIS_SHARED_SECRET`
+- 呼叫 `jarvisCreateChildNode` callable function
+- 由 function 端使用 Admin SDK 在指定 parent 下新增 child node
+- 自動更新 parent 的 `childIds` 與整體 canvas `updatedAt`
 
 ### 讀取腳本現況
 
