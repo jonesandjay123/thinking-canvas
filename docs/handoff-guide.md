@@ -98,28 +98,27 @@ match /users/{userId}/canvases/{canvasId} {
 }
 ```
 
-此外，repo 內已新增可重用的小腳本：
+此外，repo 內目前改成：
 
-- `scripts/inspect-canvas.mjs`
-  - 以 Firebase client SDK + email/password 登入
-  - 讀取 owner canvas
-  - 搜尋關鍵字並印出完整 path
 - `scripts/update-node.mjs`
-  - 更新指定 node 的 `title` / `content`
+  - 呼叫 `jarvisUpdateNode` callable function
+  - 由 function 端用 Admin SDK 更新指定 node 的 `title` / `content`
+- `scripts/inspect-canvas.mjs`
+  - 舊的 Email/Password 讀取鏈路已退役
+  - 後續應補 dedicated read/query function
 
 相關本機 env：
 
 ```bash
-TC_EMAIL=jarvis.mac.ai@gmail.com
-TC_PASSWORD=...
 TC_OWNER_UID=...
 TC_CANVAS_ID=main
+TC_JARVIS_SHARED_SECRET=...
 ```
 
 注意：
 - 這些值只應存在 Jarvis Mac mini 本機 `.env.local`
 - 不進 git
-- `firebase-tools` 不是這條資料讀寫鏈路的核心；真正的鏈路是 Node script + Firebase client SDK + Firebase Auth + Firestore rules
+- `firebase-tools` 不是這條資料讀寫鏈路的核心；真正的新鏈路是 Node script + callable function + Admin SDK
 
 ## 完成後的收尾
 

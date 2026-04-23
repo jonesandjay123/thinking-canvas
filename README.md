@@ -212,18 +212,17 @@ VITE_GEMINI_MODEL=gemini-2.5-flash
 # VITE_USE_FUNCTIONS_EMULATOR=true
 ```
 
-如果要讓 Jarvis 在本機直接用 Firebase SDK 讀寫 thinking-canvas Firestore，可額外在 *本機自己的* `.env.local` 放：
+如果要讓 Jarvis 在本機呼叫 thinking-canvas 專屬寫入 function，可在 *本機自己的* `.env.local` 放：
 
 ```bash
-TC_EMAIL=jarvis.mac.ai@gmail.com
-TC_PASSWORD=你的_Jarvis_帳號密碼
 TC_OWNER_UID=Jones_的_Firebase_Auth_UID
 TC_CANVAS_ID=main
+TC_JARVIS_SHARED_SECRET=你設定在 Firebase Functions secret 的共享密鑰
 ```
 
 注意：
 - 這些值只應放在 Jarvis Mac mini 本機的 `.env.local`
-- 不要 commit 真實密碼
+- 不要 commit 真實 secret
 - repo 的 `.env.example` 只保留欄位名稱與示意值
 
 ## Firebase 設定
@@ -253,27 +252,13 @@ service cloud.firestore {
 }
 ```
 
-如果要讓 Jarvis 專屬帳號也能直接用 Firebase SDK 協作同一份 canvas，建議在早期先採用 *owner uid + 固定 Jarvis uid* 白名單，而不是開放給所有登入者：
+目前新的方向是：
+- 保留前端 owner flow（Google Auth + owner-only UI）
+- Jarvis 寫入不再走 Email/Password Firebase Auth
+- 改為呼叫 `jarvisUpdateNode` callable function，由 backend 用 Admin SDK 寫入 Firestore
 
-```js
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/canvases/{canvasId} {
-      allow read, write: if request.auth != null
-        && (
-          request.auth.uid == userId ||
-          request.auth.uid == "JARVIS_UID"
-        );
-    }
-  }
-}
-```
-
-重點：
-- `userId` 是 Firestore path 裡的 owner Firebase Auth uid，不是 email
-- `JARVIS_UID` 要替換成 `jarvis.mac.ai@gmail.com` 實際登入 thinking-canvas 後得到的 Firebase Auth uid
-- 這樣未來其他登入者即使存在 Firebase Auth，也不會自動取得寫入權限
+這代表 Firestore rules 不需要再為 Jarvis 額外開 Email/Password bot 帳號白名單。
+真正的 Jarvis 寫入授權邊界，改到 function 層處理。
 
 ## Gemini / AI proxy
 
@@ -319,19 +304,9 @@ npx firebase-tools deploy --only functions --project thinking-canvas
 
 ## Repo scripts for Jarvis Firebase access
 
-當 Firestore rules 已允許 *owner uid + Jarvis uid* 後，Jarvis 可以直接用 repo 內的小腳本進行 read / write 驗證。
-
-### 讀取並搜尋 path
-
-```bash
-node scripts/inspect-canvas.mjs 秋葉原
-```
-
-用途：
-- 用 `TC_EMAIL` / `TC_PASSWORD` 登入 Firebase Auth
-- 讀取 `users/{TC_OWNER_UID}/canvases/{TC_CANVAS_ID}`
-- 搜尋標題或內容包含指定關鍵字的節點
-- 印出 target node 與完整 ancestor path
+目前新的策略是：
+- *讀取 / 查詢*：之後補 dedicated backend read/query function
+- *寫入 / 更新*：走 `jarvisUpdateNode` callable function
 
 ### 更新單一 node
 
@@ -348,22 +323,27 @@ node scripts/update-node.mjs \
 node scripts/update-node.mjs --node <nodeId> --content "只更新內容"
 ```
 
-這支腳本會：
-- 以 Jarvis 帳號登入 Firebase Auth
-- 讀取 owner canvas
-- 只更新指定 node 的 `title` / `content`
+這支腳本現在會：
+- 讀取本機 `.env.local` 的 `TC_OWNER_UID` / `TC_CANVAS_ID` / `TC_JARVIS_SHARED_SECRET`
+- 呼叫 `jarvisUpdateNode` callable function
+- 由 function 端使用 Admin SDK 寫 Firestore
 - 同步更新 node 與 canvas 的 `updatedAt`
+
+### 讀取腳本現況
+
+`scripts/inspect-canvas.mjs` 將不再使用 Email/Password Firebase Auth。
+目前先退役成提示腳本，提醒後續應改補 dedicated read/query function，而不是繼續走 direct Firebase Auth login。
 
 ### 為什麼不是用 firebase-tools
 
 因為這條工作流的核心不是 Firebase CLI，而是：
 - Node script
-- Firebase client SDK
-- Firebase Auth sign-in
-- Firestore rules
+- callable function
+- backend Admin SDK
+- project-scoped secret
 
-`firebase-tools` 主要負責 project / deploy / console-oriented CLI 操作；
-真正的 repo 內資料讀寫，是透過 SDK 完成。
+`firebase-tools` 主要負責 deploy / secret 設定 / console-oriented CLI 操作；
+真正的 Jarvis 寫入，是透過 function 鏈路完成。
 
 ## 專案結構
 

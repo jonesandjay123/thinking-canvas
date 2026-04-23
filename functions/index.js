@@ -1,3 +1,4 @@
+const crypto = require('node:crypto')
 const { GoogleGenAI } = require('@google/genai')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params')
@@ -6,10 +7,40 @@ const admin = require('firebase-admin')
 
 admin.initializeApp()
 
+const db = admin.firestore()
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
+const JARVIS_SHARED_SECRET = defineSecret('JARVIS_SHARED_SECRET')
 const DEFAULT_MODEL = 'gemini-2.5-flash'
+const DEFAULT_CANVAS_ID = 'main'
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 503])
 const MAX_RETRY_ATTEMPTS = 3
+
+function timingSafeEqualString(a, b) {
+  const aBuf = Buffer.from(String(a || ''))
+  const bBuf = Buffer.from(String(b || ''))
+
+  if (aBuf.length !== bBuf.length) {
+    return false
+  }
+
+  return crypto.timingSafeEqual(aBuf, bBuf)
+}
+
+function requireJarvisSecret(request) {
+  const expected = JARVIS_SHARED_SECRET.value()
+  const provided = request.data && typeof request.data.jarvisSecret === 'string'
+    ? request.data.jarvisSecret
+    : ''
+
+  if (!expected) {
+    logger.error('JARVIS_SHARED_SECRET secret is missing')
+    throw new HttpsError('failed-precondition', '伺服器尚未設定 Jarvis secret。')
+  }
+
+  if (!provided || !timingSafeEqualString(provided, expected)) {
+    throw new HttpsError('permission-denied', 'Jarvis 寫入驗證失敗。')
+  }
+}
 
 function normalizeNodeContext(input) {
   if (!input || typeof input !== 'object') {
@@ -179,6 +210,38 @@ async function generateSuggestionsWithRetry(ai, context) {
   throw lastError
 }
 
+function normalizeJarvisUpdateNodeInput(input) {
+  if (!input || typeof input !== 'object') {
+    throw new HttpsError('invalid-argument', '缺少更新參數。')
+  }
+
+  const ownerUid = typeof input.ownerUid === 'string' ? input.ownerUid.trim() : ''
+  const canvasId = typeof input.canvasId === 'string' && input.canvasId.trim() ? input.canvasId.trim() : DEFAULT_CANVAS_ID
+  const nodeId = typeof input.nodeId === 'string' ? input.nodeId.trim() : ''
+  const title = typeof input.title === 'string' ? input.title : undefined
+  const content = typeof input.content === 'string' ? input.content : undefined
+
+  if (!ownerUid) {
+    throw new HttpsError('invalid-argument', '缺少 ownerUid。')
+  }
+
+  if (!nodeId) {
+    throw new HttpsError('invalid-argument', '缺少 nodeId。')
+  }
+
+  if (title == null && content == null) {
+    throw new HttpsError('invalid-argument', '至少要提供 title 或 content 其中一個欄位。')
+  }
+
+  return {
+    ownerUid,
+    canvasId,
+    nodeId,
+    title,
+    content,
+  }
+}
+
 exports.generateNodeIdeas = onCall(
   {
     region: 'us-central1',
@@ -210,6 +273,90 @@ exports.generateNodeIdeas = onCall(
         throw error
       }
       throw toClientFacingGeminiError(error)
+    }
+  },
+)
+
+exports.jarvisUpdateNode = onCall(
+  {
+    region: 'us-central1',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    secrets: [JARVIS_SHARED_SECRET],
+  },
+  async (request) => {
+    requireJarvisSecret(request)
+    const input = normalizeJarvisUpdateNodeInput(request.data)
+    const ref = db.doc(`users/${input.ownerUid}/canvases/${input.canvasId}`)
+    const snapshot = await ref.get()
+
+    if (!snapshot.exists) {
+      throw new HttpsError('not-found', `Canvas 不存在：users/${input.ownerUid}/canvases/${input.canvasId}`)
+    }
+
+    const record = snapshot.data() || {}
+    const document = record.document
+    const nodes = document && document.nodes && typeof document.nodes === 'object' ? document.nodes : null
+
+    if (!document || !document.canvas || !nodes) {
+      throw new HttpsError('failed-precondition', 'Canvas document 結構不合法。')
+    }
+
+    const node = nodes[input.nodeId]
+    if (!node || typeof node !== 'object') {
+      throw new HttpsError('not-found', `Node 不存在：${input.nodeId}`)
+    }
+
+    const nowIso = new Date().toISOString()
+    const updatedNode = {
+      ...node,
+      ...(input.title != null ? { title: input.title } : {}),
+      ...(input.content != null ? { content: input.content } : {}),
+      updatedAt: nowIso,
+    }
+
+    const updatedDocument = {
+      ...document,
+      canvas: {
+        ...document.canvas,
+        updatedAt: nowIso,
+      },
+      nodes: {
+        ...nodes,
+        [input.nodeId]: updatedNode,
+      },
+    }
+
+    await ref.set(
+      {
+        ...record,
+        title: updatedDocument.canvas.title,
+        document: updatedDocument,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+
+    logger.info('jarvisUpdateNode success', {
+      ownerUid: input.ownerUid,
+      canvasId: input.canvasId,
+      nodeId: input.nodeId,
+      updatedFields: {
+        title: input.title != null,
+        content: input.content != null,
+      },
+    })
+
+    return {
+      ok: true,
+      ownerUid: input.ownerUid,
+      canvasId: input.canvasId,
+      nodeId: input.nodeId,
+      updated: {
+        title: updatedNode.title,
+        content: updatedNode.content,
+      },
+      updatedAt: nowIso,
     }
   },
 )
