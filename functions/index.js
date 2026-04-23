@@ -363,9 +363,18 @@ exports.jarvisUpdateNode = onCall(
       },
     }
 
+    const actorMetadata = {
+      updatedByType: 'jarvis',
+      updatedByLabel: 'jarvis',
+      updatedBySource: 'jarvisUpdateNode',
+      updatedByOwnerUid: input.ownerUid,
+      updatedByAt: nowIso,
+    }
+
     await ref.set(
       {
         ...record,
+        ...actorMetadata,
         title: updatedDocument.canvas.title,
         document: updatedDocument,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -391,6 +400,12 @@ exports.jarvisUpdateNode = onCall(
       updated: {
         title: updatedNode.title,
         content: updatedNode.content,
+      },
+      actor: {
+        type: 'jarvis',
+        label: 'jarvis',
+        source: 'jarvisUpdateNode',
+        at: nowIso,
       },
       updatedAt: nowIso,
     }
@@ -467,9 +482,18 @@ exports.jarvisCreateChildNode = onCall(
       },
     }
 
+    const actorMetadata = {
+      updatedByType: 'jarvis',
+      updatedByLabel: 'jarvis',
+      updatedBySource: 'jarvisCreateChildNode',
+      updatedByOwnerUid: input.ownerUid,
+      updatedByAt: nowIso,
+    }
+
     await ref.set(
       {
         ...record,
+        ...actorMetadata,
         title: updatedDocument.canvas.title,
         document: updatedDocument,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -491,6 +515,12 @@ exports.jarvisCreateChildNode = onCall(
       canvasId: input.canvasId,
       parentId: input.parentId,
       node: newNode,
+      actor: {
+        type: 'jarvis',
+        label: 'jarvis',
+        source: 'jarvisCreateChildNode',
+        at: nowIso,
+      },
       updatedAt: nowIso,
     }
   },

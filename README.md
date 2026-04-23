@@ -329,6 +329,7 @@ node scripts/update-node.mjs --node <nodeId> --content "只更新內容"
 - 呼叫 `jarvisUpdateNode` callable function
 - 由 function 端使用 Admin SDK 寫 Firestore
 - 同步更新 node 與 canvas 的 `updatedAt`
+- 在 canvas document 根層補上最小 actor metadata（例如 `updatedByType: "jarvis"`）
 
 ### 新增子節點
 
@@ -345,6 +346,7 @@ node scripts/create-child-node.mjs \
 - 呼叫 `jarvisCreateChildNode` callable function
 - 由 function 端使用 Admin SDK 在指定 parent 下新增 child node
 - 自動更新 parent 的 `childIds` 與整體 canvas `updatedAt`
+- 在 canvas document 根層補上最小 actor metadata（例如 `updatedByType: "jarvis"`）
 
 ### 讀取腳本現況
 

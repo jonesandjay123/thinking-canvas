@@ -103,6 +103,11 @@ match /users/{userId}/canvases/{canvasId} {
 - `scripts/update-node.mjs`
   - 呼叫 `jarvisUpdateNode` callable function
   - 由 function 端用 Admin SDK 更新指定 node 的 `title` / `content`
+  - 同步補最小 actor metadata（`updatedByType`, `updatedByLabel`, `updatedBySource`）
+- `scripts/create-child-node.mjs`
+  - 呼叫 `jarvisCreateChildNode` callable function
+  - 由 function 端在指定 parent 下新增 child node
+  - 同步補最小 actor metadata（`updatedByType`, `updatedByLabel`, `updatedBySource`）
 - `scripts/inspect-canvas.mjs`
   - 舊的 Email/Password 讀取鏈路已退役
   - 後續應補 dedicated read/query function
