@@ -302,67 +302,41 @@ npx firebase-tools deploy --only functions --project thinking-canvas
 
 這通常是 Google 端暫時不可用，不一定是 app 本身壞掉。
 
-## Repo scripts for Jarvis Firebase access
+## Jarvis 操作入口
+
+這個 repo 現在主要負責：
+- app 本身
+- deployed Firebase functions
+- app / Firebase 架構文件
+
+而 *Jarvis-facing 的本機操作入口*，現在應優先放在：
+
+```text
+~/Downloads/code/jarvis-firebase-ops/projects/thinking-canvas/
+```
+
+也就是說：
+- `thinking-canvas` repo 保留 app 與 function 本體
+- `jarvis-firebase-ops` repo 保留 Jarvis 本機 wrapper scripts、env 規格、CRUD 操作入口
+
+### 目前 function 邊界
 
 目前新的策略是：
-- *讀取 / 查詢*：之後補 dedicated backend read/query function
-- *寫入 / 更新*：走 `jarvisUpdateNode` callable function
-- *新增子節點*：走 `jarvisCreateChildNode` callable function
+- *讀取 / 查詢*：之後再評估，不急著全部做成雲端 function
+- *寫入 / 更新*：走 `jarvisUpdateNode`
+- *新增子節點*：走 `jarvisCreateChildNode`
 
-### 更新單一 node
-
-```bash
-node scripts/update-node.mjs \
-  --node <nodeId> \
-  --title "新的標題" \
-  --content "新的內容"
-```
-
-也可只改其中一個欄位：
-
-```bash
-node scripts/update-node.mjs --node <nodeId> --content "只更新內容"
-```
-
-這支腳本現在會：
-- 讀取本機 `.env.local` 的 `TC_OWNER_UID` / `TC_CANVAS_ID` / `TC_JARVIS_SHARED_SECRET`
-- 呼叫 `jarvisUpdateNode` callable function
-- 由 function 端使用 Admin SDK 寫 Firestore
-- 同步更新 node 與 canvas 的 `updatedAt`
-- 在 canvas document 根層補上最小 actor metadata（例如 `updatedByType: "jarvis"`）
-
-### 新增子節點
-
-```bash
-node scripts/create-child-node.mjs \
-  --parent <parentId> \
-  --title "新的子節點" \
-  --content "補充內容" \
-  --type note
-```
-
-這支腳本會：
-- 讀取本機 `.env.local` 的 `TC_OWNER_UID` / `TC_CANVAS_ID` / `TC_JARVIS_SHARED_SECRET`
-- 呼叫 `jarvisCreateChildNode` callable function
-- 由 function 端使用 Admin SDK 在指定 parent 下新增 child node
-- 自動更新 parent 的 `childIds` 與整體 canvas `updatedAt`
-- 在 canvas document 根層補上最小 actor metadata（例如 `updatedByType: "jarvis"`）
-
-### 讀取腳本現況
-
-`scripts/inspect-canvas.mjs` 將不再使用 Email/Password Firebase Auth。
-目前先退役成提示腳本，提醒後續應改補 dedicated read/query function，而不是繼續走 direct Firebase Auth login。
-
-### 為什麼不是用 firebase-tools
+### 為什麼這樣分工
 
 因為這條工作流的核心不是 Firebase CLI，而是：
-- Node script
-- callable function
-- backend Admin SDK
-- project-scoped secret
+- app repo 持有 callable function 本體
+- ops repo 持有 Jarvis 的本機操作入口
+- project-scoped secret 與 env 規則集中在 ops repo
 
-`firebase-tools` 主要負責 deploy / secret 設定 / console-oriented CLI 操作；
-真正的 Jarvis 寫入，是透過 function 鏈路完成。
+這樣未來新 session 若只收到一句：
+- 去 `jarvis-firebase-ops` 幫我改 `thinking-canvas`
+
+就可以直接從 ops repo 進入，而不必先重新摸索 app repo。
 
 ## 專案結構
 

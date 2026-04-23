@@ -98,19 +98,40 @@ Thinking Canvas 是一個給 Jones 使用的可視化思考工作台，現在已
 - 新增 child node 成功
 - function response 已可回傳 actor metadata
 
-### 目前 repo 內對應腳本
+### Jarvis 操作入口已外移到 ops repo
 
-- `scripts/update-node.mjs`
-  - 呼叫 `jarvisUpdateNode`
-- `scripts/create-child-node.mjs`
-  - 呼叫 `jarvisCreateChildNode`
-- `scripts/inspect-canvas.mjs`
-  - 舊的 Email/Password 讀取鏈路已退役
-  - 目前保留為提示腳本，不再當主路徑
+現在的推薦入口不再是直接從 `thinking-canvas/scripts/` 開始。
+
+Jarvis 新 session 應優先從：
+
+```text
+~/Downloads/code/jarvis-firebase-ops/projects/thinking-canvas/
+```
+
+開始，因為那裡才是：
+- wrapper scripts
+- project-scoped env
+- CRUD 操作入口
+- 未來跨 session 最容易延續的地方
+
+### `thinking-canvas` repo 現在主要保留
+
+- app 本身
+- deployed callable functions
+- app / Firebase 架構文件
 
 ### 相關本機 env
 
+Jarvis 真正要用的 env，現在應優先放在 ops repo 的：
+
+```text
+projects/thinking-canvas/.env.local
+```
+
+至少包含：
+
 ```bash
+TC_FIREBASE_API_KEY=...
 TC_OWNER_UID=...
 TC_CANVAS_ID=main
 TC_JARVIS_SHARED_SECRET=...
@@ -119,7 +140,7 @@ TC_JARVIS_SHARED_SECRET=...
 注意：
 - 這些值只應存在 Jarvis Mac mini 本機 `.env.local`
 - 不進 git
-- `firebase-tools` 不是這條資料讀寫鏈路的核心；真正的新鏈路是 Node script + callable function + Admin SDK
+- `firebase-tools` 不是這條資料讀寫鏈路的核心；真正的新鏈路是 ops repo wrapper + callable function + Admin SDK
 
 ## 目前最理想的下一批輸出
 
